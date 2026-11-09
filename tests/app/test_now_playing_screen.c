@@ -232,12 +232,60 @@ static void holding_while_the_volume_shows_keeps_changing_it(void)
 
 static void the_menu_button_can_skip_to_the_next_track(void)
 {
-    NowPlayingControls controls = {.menu_skips = true};
+    NowPlayingControls controls = {.menu = MENU_KEY_NEXT};
     CHECK_EQUAL(NOW_PLAYING_NEXT, controlled(KEY_MENU, KEY_GESTURE_PRESS, controls));
     CHECK_EQUAL(NOW_PLAYING_UP_NEXT, controlled(KEY_MENU, KEY_GESTURE_LONG_PRESS, controls));
-    controls.menu_skips = false;
+    controls.menu = MENU_KEY_UP_NEXT;
     CHECK_EQUAL(NOW_PLAYING_UP_NEXT, controlled(KEY_MENU, KEY_GESTURE_PRESS, controls));
     CHECK_EQUAL(NOW_PLAYING_EQUALIZER, controlled(KEY_MENU, KEY_GESTURE_LONG_PRESS, controls));
+}
+
+static void the_menu_button_can_cycle_shuffle_and_repeat(void)
+{
+    NowPlayingControls controls = {.menu = MENU_KEY_MODES};
+    CHECK_EQUAL(NOW_PLAYING_CYCLE_SHUFFLE, controlled(KEY_MENU, KEY_GESTURE_PRESS, controls));
+    CHECK_EQUAL(NOW_PLAYING_CYCLE_REPEAT, controlled(KEY_MENU, KEY_GESTURE_LONG_PRESS, controls));
+    CHECK_EQUAL(NOW_PLAYING_NONE, controlled(KEY_MENU, KEY_GESTURE_REPEAT, controls));
+    KeyEvent tap = {.key = KEY_MENU, .gesture = KEY_GESTURE_PRESS};
+    CHECK_EQUAL(NOW_PLAYING_NONE, now_playing_command_with(tap, true, controls));
+}
+
+static void shuffle_and_repeat_cycle_through_every_mode(void)
+{
+    CHECK_EQUAL(SHUFFLE_SONGS, now_playing_next_shuffle(SHUFFLE_OFF));
+    CHECK_EQUAL(SHUFFLE_ALBUMS, now_playing_next_shuffle(SHUFFLE_SONGS));
+    CHECK_EQUAL(SHUFFLE_OFF, now_playing_next_shuffle(SHUFFLE_ALBUMS));
+    CHECK_EQUAL(REPEAT_ONE, now_playing_next_repeat(REPEAT_OFF));
+    CHECK_EQUAL(REPEAT_ALL, now_playing_next_repeat(REPEAT_ONE));
+    CHECK_EQUAL(REPEAT_OFF, now_playing_next_repeat(REPEAT_ALL));
+}
+
+static bool modes_text_is(PlayerStatus status, NowPlayingFeedback feedback, const char *expected)
+{
+    char buffer[TEXT_CAPACITY];
+    now_playing_modes_text(&status, feedback, buffer, sizeof buffer);
+    return strcmp(expected, buffer) == 0;
+}
+
+static void a_mode_change_names_the_mode_and_its_new_value(void)
+{
+    PlayerStatus status = {.shuffle = SHUFFLE_ALBUMS, .repeat = REPEAT_OFF};
+    CHECK(modes_text_is(status, NOW_PLAYING_FEEDBACK_SHUFFLE, "Shuffle: Albums"));
+    CHECK(modes_text_is(status, NOW_PLAYING_FEEDBACK_REPEAT, "Repeat: Off"));
+    CHECK(modes_text_is(status, NOW_PLAYING_FEEDBACK_NONE, "Shuffle Albums"));
+    status.shuffle = SHUFFLE_OFF;
+    CHECK(modes_text_is(status, NOW_PLAYING_FEEDBACK_SHUFFLE, "Shuffle: Off"));
+    CHECK(modes_text_is(status, NOW_PLAYING_FEEDBACK_NONE, ""));
+}
+
+static void mode_changes_show_feedback_for_longer_than_a_badge(void)
+{
+    CHECK_EQUAL(NOW_PLAYING_FEEDBACK_SHUFFLE,
+                now_playing_feedback_for(NOW_PLAYING_CYCLE_SHUFFLE, PLAYER_PLAYING));
+    CHECK_EQUAL(NOW_PLAYING_FEEDBACK_REPEAT,
+                now_playing_feedback_for(NOW_PLAYING_CYCLE_REPEAT, PLAYER_PAUSED));
+    CHECK(now_playing_feedback_visible(NOW_PLAYING_FEEDBACK_SHUFFLE, 1000, 2499));
+    CHECK(!now_playing_feedback_visible(NOW_PLAYING_FEEDBACK_REPEAT, 1000, 2500));
 }
 
 static void controls_follow_the_saved_options(void)
@@ -247,8 +295,10 @@ static void controls_follow_the_saved_options(void)
     options[OPTION_MENU_KEY] = MENU_KEY_NEXT;
     NowPlayingControls controls = now_playing_controls_of(options);
     CHECK_EQUAL(ROCKER_VOLUME_SEEK, controls.rocker);
-    CHECK(controls.menu_skips);
-    CHECK(!now_playing_controls_of(NULL).menu_skips);
+    CHECK_EQUAL(MENU_KEY_NEXT, controls.menu);
+    CHECK_EQUAL(MENU_KEY_UP_NEXT, now_playing_controls_of(NULL).menu);
+    options[OPTION_MENU_KEY] = MENU_KEY_MODES;
+    CHECK_EQUAL(MENU_KEY_MODES, now_playing_controls_of(options).menu);
 }
 
 int main(void)
@@ -258,6 +308,10 @@ int main(void)
         TEST_CASE(hold_to_seek_moves_within_the_track),
         TEST_CASE(holding_while_the_volume_shows_keeps_changing_it),
         TEST_CASE(the_menu_button_can_skip_to_the_next_track),
+        TEST_CASE(the_menu_button_can_cycle_shuffle_and_repeat),
+        TEST_CASE(shuffle_and_repeat_cycle_through_every_mode),
+        TEST_CASE(a_mode_change_names_the_mode_and_its_new_value),
+        TEST_CASE(mode_changes_show_feedback_for_longer_than_a_badge),
         TEST_CASE(controls_follow_the_saved_options),
         TEST_CASE(the_codec_has_a_short_name),
         TEST_CASE(lossless_streams_show_bit_depth_and_rate),

@@ -157,9 +157,15 @@ typedef enum RockerMode {
     ROCKER_MODE_COUNT
 } RockerMode;
 
+typedef enum MenuKeyMode {
+    MENU_KEY_UP_NEXT,
+    MENU_KEY_NEXT,
+    MENU_KEY_MODES,
+    MENU_KEY_MODE_COUNT
+} MenuKeyMode;
+
 enum {
-    ACCENT_COUNT = 8,
-    MENU_KEY_NEXT = 1
+    ACCENT_COUNT = 8
 };
 
 enum {

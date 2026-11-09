@@ -35,12 +35,14 @@ typedef enum NowPlayingCommand {
     NOW_PLAYING_UP_NEXT,
     NOW_PLAYING_EQUALIZER,
     NOW_PLAYING_SEEK_FORWARD,
-    NOW_PLAYING_SEEK_BACK
+    NOW_PLAYING_SEEK_BACK,
+    NOW_PLAYING_CYCLE_SHUFFLE,
+    NOW_PLAYING_CYCLE_REPEAT
 } NowPlayingCommand;
 
 typedef struct NowPlayingControls {
     uint8_t rocker;
-    bool menu_skips;
+    uint8_t menu;
     bool volume_shown;
 } NowPlayingControls;
 
@@ -49,7 +51,8 @@ enum {
     NOW_PLAYING_SCRUB_FAST_STEP_MS = 15000,
     NOW_PLAYING_VOLUME_FEEDBACK_MS = 1500,
     NOW_PLAYING_VOLUME_HOLD_MS = 2500,
-    NOW_PLAYING_BADGE_MS = 700
+    NOW_PLAYING_BADGE_MS = 700,
+    NOW_PLAYING_MODE_FEEDBACK_MS = 1500
 };
 
 typedef enum NowPlayingFeedback {
@@ -58,7 +61,9 @@ typedef enum NowPlayingFeedback {
     NOW_PLAYING_FEEDBACK_NEXT,
     NOW_PLAYING_FEEDBACK_PREVIOUS,
     NOW_PLAYING_FEEDBACK_PAUSE,
-    NOW_PLAYING_FEEDBACK_PLAY
+    NOW_PLAYING_FEEDBACK_PLAY,
+    NOW_PLAYING_FEEDBACK_SHUFFLE,
+    NOW_PLAYING_FEEDBACK_REPEAT
 } NowPlayingFeedback;
 
 typedef struct NowPlayingConfig {
@@ -115,5 +120,9 @@ NowPlayingFeedback now_playing_feedback_for(NowPlayingCommand command, PlayerSta
 bool now_playing_feedback_visible(NowPlayingFeedback feedback, uint32_t started_ms,
                                   uint32_t now_ms);
 int now_playing_volume_width(uint8_t volume, int width);
+ShuffleMode now_playing_next_shuffle(ShuffleMode shuffle);
+RepeatMode now_playing_next_repeat(RepeatMode repeat);
+void now_playing_modes_text(const PlayerStatus *status, NowPlayingFeedback feedback, char *buffer,
+                            size_t capacity);
 const char *now_playing_lyric(const NowPlayingScreen *now_playing);
 Screen *now_playing_screen_init(NowPlayingScreen *now_playing, NowPlayingConfig config);
