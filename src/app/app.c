@@ -735,7 +735,8 @@ static const char *status_clock_text(void)
         !clock_store_now(&app.clock, app.now_ms, &civil)) {
         return NULL;
     }
-    wall_clock_time_text(&civil, text, sizeof text);
+    WallClockStyle style = {.format = WALL_CLOCK_24_HOUR};
+    wall_clock_time_text(&civil, &style, text, sizeof text);
     return text;
 }
 

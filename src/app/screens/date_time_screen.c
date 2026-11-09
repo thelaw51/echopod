@@ -255,6 +255,7 @@ const char *date_time_screen_summary(const void *context)
     if (!clock_store_now(screen->config.clock, hal_clock_milliseconds(), &civil)) {
         return i18n_text(STR_SETTINGS_NOT_SET);
     }
-    wall_clock_date_time_text(&civil, summary, sizeof summary);
+    WallClockStyle style = {.format = WALL_CLOCK_24_HOUR};
+    wall_clock_date_time_text(&civil, &style, summary, sizeof summary);
     return summary;
 }

@@ -134,17 +134,107 @@ static void zones_step_by_a_quarter_hour_from_minus_12_to_plus_14(void)
     CHECK_EQUAL(14 * 60, wall_clock_zone_minutes(wall_clock_zone_of(20 * 60)));
 }
 
+static const WallClockStyle TWENTY_FOUR = {.format = WALL_CLOCK_24_HOUR};
+static const WallClockStyle TWELVE = {.format = WALL_CLOCK_12_HOUR, .am = "AM", .pm = "PM"};
+static const WallClockStyle TWELVE_BARE = {.format = WALL_CLOCK_12_HOUR};
+
 static void times_and_dates_format_with_zero_padding(void)
 {
     char text[WALL_CLOCK_DATE_TIME_CAPACITY];
     WallCivil civil = {2026, 1, 5, 9, 7, 3};
-    wall_clock_time_text(&civil, text, sizeof text);
+    wall_clock_time_text(&civil, &TWENTY_FOUR, text, sizeof text);
     CHECK(text_is("09:07", text));
-    wall_clock_date_time_text(&civil, text, sizeof text);
+    wall_clock_date_time_text(&civil, &TWENTY_FOUR, text, sizeof text);
     CHECK(text_is("2026-01-05 09:07", text));
     civil = (WallCivil){2099, 12, 31, 23, 59, 59};
-    wall_clock_date_time_text(&civil, text, sizeof text);
+    wall_clock_date_time_text(&civil, &TWENTY_FOUR, text, sizeof text);
     CHECK(text_is("2099-12-31 23:59", text));
+}
+
+static void a_24_hour_style_ignores_markers(void)
+{
+    char text[WALL_CLOCK_DATE_TIME_CAPACITY];
+    WallClockStyle style = {.format = WALL_CLOCK_24_HOUR, .am = "AM", .pm = "PM"};
+    WallCivil civil = {2026, 1, 5, 13, 7, 0};
+    wall_clock_time_text(&civil, &style, text, sizeof text);
+    CHECK(text_is("13:07", text));
+    wall_clock_hour_text(9, &style, text, sizeof text);
+    CHECK(text_is("09", text));
+}
+
+static void twelve_hour_times_run_from_12_am_to_11_pm(void)
+{
+    char text[WALL_CLOCK_DATE_TIME_CAPACITY];
+    WallCivil civil = {2026, 1, 5, 0, 5, 0};
+    wall_clock_time_text(&civil, &TWELVE, text, sizeof text);
+    CHECK(text_is("12:05 AM", text));
+    civil.hour = 1;
+    wall_clock_time_text(&civil, &TWELVE, text, sizeof text);
+    CHECK(text_is("1:05 AM", text));
+    civil.hour = 11;
+    civil.minute = 59;
+    wall_clock_time_text(&civil, &TWELVE, text, sizeof text);
+    CHECK(text_is("11:59 AM", text));
+    civil.hour = 12;
+    civil.minute = 0;
+    wall_clock_time_text(&civil, &TWELVE, text, sizeof text);
+    CHECK(text_is("12:00 PM", text));
+    civil.hour = 13;
+    wall_clock_time_text(&civil, &TWELVE, text, sizeof text);
+    CHECK(text_is("1:00 PM", text));
+    civil.hour = 23;
+    civil.minute = 59;
+    wall_clock_time_text(&civil, &TWELVE, text, sizeof text);
+    CHECK(text_is("11:59 PM", text));
+    wall_clock_date_time_text(&civil, &TWELVE, text, sizeof text);
+    CHECK(text_is("2026-01-05 11:59 PM", text));
+}
+
+static void a_twelve_hour_style_without_markers_shows_only_the_time(void)
+{
+    char text[WALL_CLOCK_TIME_CAPACITY];
+    WallCivil civil = {2026, 1, 5, 0, 5, 0};
+    wall_clock_time_text(&civil, &TWELVE_BARE, text, sizeof text);
+    CHECK(text_is("12:05", text));
+    civil.hour = 21;
+    wall_clock_time_text(&civil, &TWELVE_BARE, text, sizeof text);
+    CHECK(text_is("9:05", text));
+}
+
+static void hours_format_for_the_date_time_editor(void)
+{
+    char text[WALL_CLOCK_HOUR_CAPACITY];
+    wall_clock_hour_text(0, &TWELVE, text, sizeof text);
+    CHECK(text_is("12 AM", text));
+    wall_clock_hour_text(12, &TWELVE, text, sizeof text);
+    CHECK(text_is("12 PM", text));
+    wall_clock_hour_text(17, &TWELVE, text, sizeof text);
+    CHECK(text_is("5 PM", text));
+    wall_clock_hour_text(7, &TWENTY_FOUR, text, sizeof text);
+    CHECK(text_is("07", text));
+}
+
+static void a_marker_longer_than_the_limit_is_left_out(void)
+{
+    char text[WALL_CLOCK_DATE_TIME_CAPACITY];
+    WallClockStyle style = {
+        .format = WALL_CLOCK_12_HOUR, .am = "\xEC\x98\xA4\xEC\xA0\x84", .pm = "a-marker-of-16ch"};
+    WallCivil civil = {2026, 1, 5, 8, 30, 0};
+    wall_clock_date_time_text(&civil, &style, text, sizeof text);
+    CHECK(text_is("2026-01-05 8:30 \xEC\x98\xA4\xEC\xA0\x84", text));
+    civil.hour = 20;
+    wall_clock_date_time_text(&civil, &style, text, sizeof text);
+    CHECK(text_is("2026-01-05 8:30", text));
+}
+
+static void a_short_buffer_keeps_whole_characters(void)
+{
+    char text[9];
+    WallClockStyle style = {.format = WALL_CLOCK_12_HOUR, .pm = "\xEC\x98\xA4\xED\x9B\x84"};
+    WallCivil civil = {2026, 1, 5, 13, 30, 0};
+    wall_clock_time_text(&civil, &style, text, sizeof text);
+    CHECK(text_is("1:30 \xEC\x98\xA4", text));
+    wall_clock_time_text(&civil, &style, text, 0);
 }
 
 static void zones_format_as_utc_offsets(void)
@@ -173,6 +263,12 @@ int main(void)
         TEST_CASE(unix_time_needs_a_known_clock_and_a_zone),
         TEST_CASE(zones_step_by_a_quarter_hour_from_minus_12_to_plus_14),
         TEST_CASE(times_and_dates_format_with_zero_padding),
+        TEST_CASE(a_24_hour_style_ignores_markers),
+        TEST_CASE(twelve_hour_times_run_from_12_am_to_11_pm),
+        TEST_CASE(a_twelve_hour_style_without_markers_shows_only_the_time),
+        TEST_CASE(hours_format_for_the_date_time_editor),
+        TEST_CASE(a_marker_longer_than_the_limit_is_left_out),
+        TEST_CASE(a_short_buffer_keeps_whole_characters),
         TEST_CASE(zones_format_as_utc_offsets),
     };
     return test_run_all(cases, TEST_CASE_COUNT(cases));
