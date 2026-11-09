@@ -575,6 +575,32 @@ static void a_new_option_out_of_range_is_rejected(void)
     CHECK(!settings_decode(bytes, sizeof bytes, &decoded));
 }
 
+static void a_file_from_before_the_time_format_keeps_the_24_hour_clock(void)
+{
+    Settings settings = custom_settings();
+    settings.options[OPTION_TIME_FORMAT] = TIME_FORMAT_12_HOUR;
+    uint8_t bytes[SETTINGS_FILE_SIZE];
+    settings_encode(&settings, bytes);
+    CHECK_EQUAL(TIME_FORMAT_12_HOUR, bytes[OPTIONS_FIELD + OPTION_TIME_FORMAT]);
+    bytes[OPTIONS_FIELD + OPTION_TIME_FORMAT] = 0;
+    put_checksum(bytes, OPTIONS_CHECKSUM_FIELD);
+    Settings decoded;
+    CHECK(settings_decode(bytes, sizeof bytes, &decoded));
+    CHECK_EQUAL(TIME_FORMAT_24_HOUR, decoded.options[OPTION_TIME_FORMAT]);
+    CHECK_EQUAL(TIME_FORMAT_24_HOUR, settings_defaults().options[OPTION_TIME_FORMAT]);
+}
+
+static void an_unknown_time_format_is_rejected(void)
+{
+    Settings settings = custom_settings();
+    uint8_t bytes[SETTINGS_FILE_SIZE];
+    settings_encode(&settings, bytes);
+    bytes[OPTIONS_FIELD + OPTION_TIME_FORMAT] = TIME_FORMAT_12_HOUR + 1;
+    put_checksum(bytes, OPTIONS_CHECKSUM_FIELD);
+    Settings decoded;
+    CHECK(!settings_decode(bytes, sizeof bytes, &decoded));
+}
+
 int main(void)
 {
     static const TestCase cases[] = {
@@ -588,6 +614,8 @@ int main(void)
         TEST_CASE(a_short_or_corrupted_version_8_file_is_rejected),
         TEST_CASE(a_value_in_a_spare_option_slot_is_ignored),
         TEST_CASE(a_new_option_out_of_range_is_rejected),
+        TEST_CASE(a_file_from_before_the_time_format_keeps_the_24_hour_clock),
+        TEST_CASE(an_unknown_time_format_is_rejected),
         TEST_CASE(an_option_out_of_range_is_rejected),
         TEST_CASE(a_version_7_file_loads_with_the_options_off),
         TEST_CASE(defaults_are_comfortable),

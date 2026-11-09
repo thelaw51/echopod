@@ -731,11 +731,12 @@ static const char *status_clock_text(void)
 {
     static char text[WALL_CLOCK_TIME_CAPACITY];
     WallCivil civil;
+    WallClockStyle style = clock_store_style(&app.settings.settings, false);
     if (app.settings.settings.options[OPTION_CLOCK] != CLOCK_ON ||
         !clock_store_now(&app.clock, app.now_ms, &civil)) {
         return NULL;
     }
-    wall_clock_time_text(&civil, text, sizeof text);
+    wall_clock_time_text(&civil, &style, text, sizeof text);
     return text;
 }
 

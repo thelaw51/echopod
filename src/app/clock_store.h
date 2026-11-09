@@ -29,4 +29,5 @@ bool clock_store_after_usb(ClockStore *store, Settings *settings, uint32_t now_m
 bool clock_store_set(ClockStore *store, Settings *settings, const WallCivil *civil, uint8_t zone,
                      uint32_t now_ms);
 bool clock_store_now(const ClockStore *store, uint32_t now_ms, WallCivil *civil);
+WallClockStyle clock_store_style(const Settings *settings, bool markers);
 bool clock_store_record_decode(const uint8_t *bytes, uint32_t *unix_time, int32_t *offset_minutes);

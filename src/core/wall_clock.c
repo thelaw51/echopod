@@ -18,7 +18,8 @@ enum {
     FEBRUARY_DAYS = 28,
     LONG_MONTHS = 0x15AA,
     LAST_MINUTE = 59,
-    LAST_HOUR = 23
+    LAST_HOUR = 23,
+    HOURS_PER_HALF_DAY = 12
 };
 
 uint32_t wall_clock_days_from_civil(uint32_t year, uint32_t month, uint32_t day)
@@ -134,20 +135,63 @@ static void append_two_digits(StringBuilder *builder, uint32_t value)
     string_builder_append_char(builder, (char)('0' + value % 10));
 }
 
-static void append_time(StringBuilder *builder, const WallCivil *civil)
+static bool marker_fits(const char *marker)
 {
-    append_two_digits(builder, civil->hour);
+    if (marker == NULL || marker[0] == '\0') {
+        return false;
+    }
+    for (int length = 0; length <= WALL_CLOCK_MARKER_LIMIT; length++) {
+        if (marker[length] == '\0') {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void append_marker(StringBuilder *builder, uint8_t hour, const WallClockStyle *style)
+{
+    const char *marker = hour < HOURS_PER_HALF_DAY ? style->am : style->pm;
+    if (style->format == WALL_CLOCK_12_HOUR && marker_fits(marker)) {
+        string_builder_append_char(builder, ' ');
+        string_builder_append(builder, marker);
+    }
+}
+
+static void append_hour(StringBuilder *builder, uint8_t hour, const WallClockStyle *style)
+{
+    if (style->format != WALL_CLOCK_12_HOUR) {
+        append_two_digits(builder, hour);
+        return;
+    }
+    uint32_t half_day_hour = hour % HOURS_PER_HALF_DAY;
+    string_builder_append_unsigned(builder,
+                                   half_day_hour == 0 ? HOURS_PER_HALF_DAY : half_day_hour);
+}
+
+static void append_time(StringBuilder *builder, const WallCivil *civil, const WallClockStyle *style)
+{
+    append_hour(builder, civil->hour, style);
     string_builder_append_char(builder, ':');
     append_two_digits(builder, civil->minute);
+    append_marker(builder, civil->hour, style);
 }
 
-void wall_clock_time_text(const WallCivil *civil, char *text, size_t capacity)
+void wall_clock_time_text(const WallCivil *civil, const WallClockStyle *style, char *text,
+                          size_t capacity)
 {
     StringBuilder builder = string_builder_make(text, capacity);
-    append_time(&builder, civil);
+    append_time(&builder, civil, style);
 }
 
-void wall_clock_date_time_text(const WallCivil *civil, char *text, size_t capacity)
+void wall_clock_hour_text(uint8_t hour, const WallClockStyle *style, char *text, size_t capacity)
+{
+    StringBuilder builder = string_builder_make(text, capacity);
+    append_hour(&builder, hour, style);
+    append_marker(&builder, hour, style);
+}
+
+void wall_clock_date_time_text(const WallCivil *civil, const WallClockStyle *style, char *text,
+                               size_t capacity)
 {
     StringBuilder builder = string_builder_make(text, capacity);
     string_builder_append_unsigned(&builder, civil->year);
@@ -156,7 +200,7 @@ void wall_clock_date_time_text(const WallCivil *civil, char *text, size_t capaci
     string_builder_append_char(&builder, '-');
     append_two_digits(&builder, civil->day);
     string_builder_append_char(&builder, ' ');
-    append_time(&builder, civil);
+    append_time(&builder, civil, style);
 }
 
 void wall_clock_zone_text(uint8_t zone, char *text, size_t capacity)

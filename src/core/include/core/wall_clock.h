@@ -15,10 +15,23 @@ enum {
             WALL_CLOCK_ZONE_STEP_MINUTES +
         2,
     WALL_CLOCK_ZONE_UTC = -WALL_CLOCK_ZONE_FIRST_MINUTES / WALL_CLOCK_ZONE_STEP_MINUTES + 1,
-    WALL_CLOCK_TIME_CAPACITY = 6,
-    WALL_CLOCK_DATE_TIME_CAPACITY = 17,
+    WALL_CLOCK_MARKER_LIMIT = 15,
+    WALL_CLOCK_TIME_CAPACITY = 6 + 1 + WALL_CLOCK_MARKER_LIMIT,
+    WALL_CLOCK_HOUR_CAPACITY = 3 + 1 + WALL_CLOCK_MARKER_LIMIT,
+    WALL_CLOCK_DATE_TIME_CAPACITY = 17 + 1 + WALL_CLOCK_MARKER_LIMIT,
     WALL_CLOCK_ZONE_CAPACITY = 10
 };
+
+typedef enum WallClockFormat {
+    WALL_CLOCK_24_HOUR,
+    WALL_CLOCK_12_HOUR
+} WallClockFormat;
+
+typedef struct WallClockStyle {
+    WallClockFormat format;
+    const char *am;
+    const char *pm;
+} WallClockStyle;
 
 typedef struct WallCivil {
     uint16_t year;
@@ -47,6 +60,9 @@ void wall_clock_set(WallClock *clock, uint32_t local_seconds, uint32_t now_ms);
 uint32_t wall_clock_local(const WallClock *clock, uint32_t now_ms);
 bool wall_clock_unix(const WallClock *clock, uint32_t now_ms, uint32_t *unix_time);
 uint32_t wall_clock_local_of_unix(uint32_t unix_time, uint8_t zone);
-void wall_clock_time_text(const WallCivil *civil, char *text, size_t capacity);
-void wall_clock_date_time_text(const WallCivil *civil, char *text, size_t capacity);
+void wall_clock_time_text(const WallCivil *civil, const WallClockStyle *style, char *text,
+                          size_t capacity);
+void wall_clock_hour_text(uint8_t hour, const WallClockStyle *style, char *text, size_t capacity);
+void wall_clock_date_time_text(const WallCivil *civil, const WallClockStyle *style, char *text,
+                               size_t capacity);
 void wall_clock_zone_text(uint8_t zone, char *text, size_t capacity);

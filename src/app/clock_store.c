@@ -1,6 +1,7 @@
 #include "clock_store.h"
 
 #include "core/hash.h"
+#include "core/i18n.h"
 #include "hal/storage.h"
 #include "hal/system.h"
 #include "hal/time.h"
@@ -171,4 +172,14 @@ bool clock_store_now(const ClockStore *store, uint32_t now_ms, WallCivil *civil)
     }
     wall_clock_civil_of(wall_clock_local(&store->clock, now_ms), civil);
     return true;
+}
+
+WallClockStyle clock_store_style(const Settings *settings, bool markers)
+{
+    if (settings->options[OPTION_TIME_FORMAT] != TIME_FORMAT_12_HOUR) {
+        return (WallClockStyle){.format = WALL_CLOCK_24_HOUR};
+    }
+    return (WallClockStyle){.format = WALL_CLOCK_12_HOUR,
+                            .am = markers ? i18n_text(STR_SETTINGS_AM) : NULL,
+                            .pm = markers ? i18n_text(STR_SETTINGS_PM) : NULL};
 }
