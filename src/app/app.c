@@ -862,6 +862,7 @@ static void start_screens(uint32_t now_ms)
         .settings = &app.settings,
         .favorites = &app.favorites,
         .playlists = &app.playlists,
+        .loved = &app.loved,
         .power = &app.power,
         .toast = &app.toast,
         .covers = &app.covers,

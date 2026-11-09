@@ -1724,7 +1724,7 @@ static void holding_play_in_favorites_removes_the_album(void)
     hold(KEY_PLAY);
     CHECK(toast_is("Removed from Favorites"));
     tap(KEY_PLAY);
-    CHECK(title_is("Favorites"));
+    CHECK(title_is("Loved tracks"));
 }
 
 static void favorites_survive_a_restart(void)
@@ -1735,6 +1735,52 @@ static void favorites_survive_a_restart(void)
     open_music_entry(MUSIC_FAVORITES_INDEX);
     tap(KEY_PLAY);
     CHECK(title_is("Back In Black"));
+}
+
+static void love_the_first_album_track(void)
+{
+    open_music_entry(MUSIC_ALBUMS_INDEX);
+    tap(KEY_PLAY);
+    hold(KEY_PLAY);
+    move_down(3);
+    tap(KEY_PLAY);
+}
+
+static void loving_a_song_puts_it_in_loved_tracks(void)
+{
+    start_app_with_library();
+    love_the_first_album_track();
+    CHECK(toast_is("Added to Loved tracks"));
+    restart_app();
+    open_music_entry(MUSIC_FAVORITES_INDEX);
+    CHECK(title_is("Favorites"));
+    tap(KEY_PLAY);
+    CHECK(title_is("Loved tracks"));
+    tap(KEY_PLAY);
+    CHECK(title_is("Now Playing"));
+    CHECK(playing_path_is(HELLS_BELLS_PATH));
+}
+
+static void a_loved_song_offers_unlove(void)
+{
+    start_app_with_library();
+    love_the_first_album_track();
+    hold(KEY_PLAY);
+    move_down(3);
+    tap(KEY_PLAY);
+    CHECK(toast_is("Removed from Loved tracks"));
+}
+
+static void holding_play_in_up_next_loves_the_song(void)
+{
+    start_app_with_library();
+    play_first_album_track();
+    tap(KEY_MENU);
+    CHECK(title_is("Up Next"));
+    hold(KEY_PLAY);
+    CHECK(toast_is("Added to Loved tracks"));
+    hold(KEY_PLAY);
+    CHECK(toast_is("Removed from Loved tracks"));
 }
 
 static void a_toast_disappears_after_a_while(void)
@@ -2950,6 +2996,9 @@ int main(void)
         TEST_CASE(play_next_with_nothing_playing_starts_the_song),
         TEST_CASE(holding_play_in_favorites_removes_the_album),
         TEST_CASE(favorites_survive_a_restart),
+        TEST_CASE(loving_a_song_puts_it_in_loved_tracks),
+        TEST_CASE(a_loved_song_offers_unlove),
+        TEST_CASE(holding_play_in_up_next_loves_the_song),
         TEST_CASE(a_toast_disappears_after_a_while),
         TEST_CASE(playlists_open_from_the_music_menu),
         TEST_CASE(the_start_screen_setting_opens_albums),
