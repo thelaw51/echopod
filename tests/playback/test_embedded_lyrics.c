@@ -224,14 +224,14 @@ static void latin1_uslt_in_id3v23_reads_as_unsynced_lines(void)
 {
     id3_start(3, 0);
     add_text_frame(3, "TIT2", "Title");
-    make_uslt(0, "", "Caf\xe9 au lait\nSecond line\n");
+    make_uslt(0, "", "Caf\xe9 au lait\nSecond \x93line\x94\n");
     id3_frame(3, "USLT", 0, &frame);
     id3_finish();
     CHECK(read_file("/Music/song.mp3"));
     CHECK(!lyrics.synced);
     CHECK_EQUAL(2, lyrics.count);
     CHECK(line_is(0, "Caf\xc3\xa9 au lait"));
-    CHECK(line_is(1, "Second line"));
+    CHECK(line_is(1, "Second \xe2\x80\x9cline\xe2\x80\x9d"));
 }
 
 static void utf16_uslt_decodes_surrogates_and_crlf(void)

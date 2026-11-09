@@ -253,6 +253,15 @@ static void put_code_point(Text *text, uint32_t code_point)
     text->used += size;
 }
 
+static uint32_t latin1(uint8_t byte)
+{
+    static const uint16_t WINDOWS_1252[32] = {
+        0x20AC, 0,      0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021, 0x02C6, 0x2030, 0x0160,
+        0x2039, 0x0152, 0,      0x017D, 0,      0,      0x2018, 0x2019, 0x201C, 0x201D, 0x2022,
+        0x2013, 0x2014, 0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0,      0x017E, 0x0178};
+    return byte >= 0x80 && byte < 0xA0 ? WINDOWS_1252[byte - 0x80] : byte;
+}
+
 static bool wide(uint8_t encoding)
 {
     return encoding == ENCODING_UTF16 || encoding == ENCODING_UTF16BE;
@@ -273,7 +282,7 @@ static bool decode(Cursor *cursor, uint8_t encoding, bool stop_at_nul, Text *tex
             if (encoding == ENCODING_UTF8 && lead >= 0x80) {
                 put_raw(text, lead);
             } else {
-                put_code_point(text, lead);
+                put_code_point(text, latin1(lead));
             }
             continue;
         }
@@ -406,7 +415,7 @@ static bool sylt_entries(Cursor *cursor, uint8_t encoding, SyltLine *line, bool 
     for (;;) {
         char bytes[LINE_CAPACITY];
         Text text = {.bytes = bytes, .used = 0, .capacity = sizeof bytes, .lyrics = NULL};
-        uint8_t stamp[4];
+        uint8_t stamp[4] = {0};
         bool ended = decode(cursor, encoding, true, &text);
         if (!ended || !next_byte(cursor, &stamp[0]) || !next_byte(cursor, &stamp[1]) ||
             !next_byte(cursor, &stamp[2]) || !next_byte(cursor, &stamp[3])) {
@@ -432,7 +441,7 @@ static bool sylt_entries(Cursor *cursor, uint8_t encoding, SyltLine *line, bool 
 static bool read_sylt(ByteSource source, const Span *span, Lyrics *lyrics)
 {
     Cursor cursor;
-    uint8_t header[6];
+    uint8_t header[6] = {0};
     cursor_open(&cursor, source, span);
     for (uint32_t index = 0; index < sizeof header; index++) {
         if (!next_byte(&cursor, &header[index])) {
@@ -614,7 +623,7 @@ static bool flac_read(ByteSource source, uint32_t size, Lyrics *lyrics)
         if (length > size - body) {
             return false;
         }
-        Span span;
+        Span span = {.found = false};
         if ((header[0] & 0x7F) == FLAC_VORBIS_COMMENT) {
             return vorbis_find(source, body, body + length, &span) &&
                    read_value(source, &span, ENCODING_UTF8, lyrics);
@@ -701,7 +710,7 @@ static bool ogg_read(ByteSource file, uint32_t size, Lyrics *lyrics)
         same_text((const char *)prefix, OPUS_TAGS_PREFIX, "OpusTags")        ? OPUS_TAGS_PREFIX
         : prefix[0] == 3 && same_text((const char *)prefix + 1, 6, "vorbis") ? VORBIS_COMMENT_PREFIX
                                                                              : 0;
-    Span span;
+    Span span = {.found = false};
     return start > 0 && vorbis_find(source, start, UINT32_MAX, &span) &&
            read_value(source, &span, ENCODING_UTF8, lyrics);
 }
