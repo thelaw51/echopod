@@ -4,6 +4,7 @@
 
 ### New
 
+- **Lyrics from the song's tags.** When there's no `.lrc` file, Now Playing shows lyrics saved inside the song: MP3 `SYLT` (synced) and `USLT`, FLAC, Ogg and Opus `LYRICS` or `UNSYNCEDLYRICS`, and M4A lyrics. Tag lyrics with `[mm:ss.xx]` times scroll with the song. A `.lrc` file still wins. Checked in the simulator, not yet on a player.
 - **Playlists made on the player.** Hold ▶ on a song and choose Add to playlist. Your playlists appear at the top of Music → Playlists, up to 16 of 200 songs each, and survive a rescan. Hold ▶ on a song in one to remove it, or on the playlist to delete it. They're numbered (Playlist 1, Playlist 2), since the player has no keyboard.
 
 ### Safer installs
