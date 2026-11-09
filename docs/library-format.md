@@ -124,6 +124,14 @@ On the device, the scanner notes each `.m3u`/`.m3u8` path during the walk (the P
 
 Favorites outlive a re-index, so they don't store album indices. An album's key is the FNV-1a hash of its album artist, a `0x1F` separator and its title (`library_album_key`). `/.echo/favorites.bin` holds the magic `EMFV`, `u16` version 1, a `u16` count, the `u32` keys and an FNV-1a checksum. At most 256 albums can be favorites. An album that leaves the library just stops showing up.
 
+## Playlists made on the player
+
+`/.echo/playlists.bin` holds the playlists made on the player, in 16 slots of 1,220 bytes (19,520 bytes, reserved by `card_files`). A slot holds the magic `EMPL`, `u16` version 1, the playlist's `u16` number at byte 6 (0 for an empty slot; the list shows it as "Playlist 3"), the `u16` entry count at byte 8, the library fingerprint the track indices were resolved against at byte 12, 200 entries of 6 bytes from byte 16 (the `u32` FNV-1a hash of the track's path without its leading `/`, then its `u16` track index, `0xFFFF` when no track has that path) and an FNV-1a checksum of everything before it in the last 4 bytes. A slot that fails its checksum reads as empty.
+
+The path hashes let a playlist outlive a rescan. When the library's fingerprint changes, or a stored index no longer points at a track with that hash, the player walks every track once, matches the hashes and writes the slot back. A song that left the library keeps its entry with `0xFFFF` and is skipped, so it comes back if the file returns. The file is written in place, a slot at a time, because the player can't delete or shrink files on the card. Deleting a playlist writes an empty slot. A slot is rewritten whole with no second copy, so power lost mid-write leaves a slot that fails its checksum: that playlist is gone, and the rest are unharmed unless the card loses the sector they share.
+
+`resume.bin` stores a playlist's queue as kind `BROWSE_TRACK_LIST` (10) with the slot as its subject and bit `0x8000` set, the pinned copy. After a delete, a new playlist that takes the same slot is what resumes.
+
 ## Bookmarks file
 
 `/.echo/bookmarks.bin` (4 KB, reserved by the player) remembers where each audiobook and podcast episode stopped (`playback/bookmarks`). Like favorites, it is keyed by path hashes, so it outlives a re-index.
