@@ -6,7 +6,7 @@ EchoPod is early firmware made by one person and tested on one player. It comes 
 
 - **Volume:** EchoPod's top volume is close to FiiO's maximum, and sensitive earphones can be very loud. Turn the volume down before you put them in.
 - **Battery:** EchoPod switches off when the battery runs low, but doesn't yet refuse to start on an almost empty battery. If it switches off by itself, charge it before using it again.
-- **Bricking:** custom firmware has left Echo Mini players unable to start during development (all were recovered through maskrom). EchoPod's updater writes one firmware slot at a time and reads every chunk back, but a power cut during an install is still a risk: install with the battery charged.
+- **Bricking:** custom firmware has left Echo Mini players unable to start during development (all were recovered through maskrom). EchoPod's updater writes one firmware slot at a time and reads every chunk back, and on battery it refuses to start an install below about 30 % (3.71 V), but a power cut during an install is still a risk: install with the battery charged.
 
 ## Installing
 

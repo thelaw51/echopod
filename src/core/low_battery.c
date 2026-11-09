@@ -22,3 +22,14 @@ bool low_battery_update(LowBattery *low, LowBatteryReading reading, uint32_t now
     }
     return now_ms - low->below_since_ms >= LOW_BATTERY_HOLD_MS;
 }
+
+InstallPower low_battery_install_power(LowBatteryReading reading)
+{
+    if (reading.usb_power) {
+        return INSTALL_POWER_OK;
+    }
+    if (!reading.known) {
+        return INSTALL_POWER_UNKNOWN;
+    }
+    return reading.millivolts < LOW_BATTERY_INSTALL_MV ? INSTALL_POWER_LOW : INSTALL_POWER_OK;
+}

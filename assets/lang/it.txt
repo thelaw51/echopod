@@ -213,6 +213,7 @@ STR_UPDATE_FAILED = Aggiornamento non riuscito
 STR_UPDATE_RETRY = Copia di nuovo il file e riprova prima di spegnere.
 STR_UPDATE_NOT_INSTALLED = Aggiornamento non installato
 STR_UPDATE_INVALID_IMAGE = {0} non è un'immagine valida per questo player.
+STR_UPDATE_BATTERY_LOW = Batteria troppo scarica. Collega l'USB, poi espelli di nuovo le unità.
 STR_DIAG_TITLE = Diagnostica
 STR_DIAG_KEY_TEST = Test tasti
 STR_DIAG_FRAME_TIME = Tempo frame

@@ -212,6 +212,7 @@ STR_UPDATE_FAILED = Opdatering mislykkedes
 STR_UPDATE_RETRY = Kopiér filen igen og prøv igen, før du slukker.
 STR_UPDATE_NOT_INSTALLED = Opdatering ikke installeret
 STR_UPDATE_INVALID_IMAGE = {0} er ikke et gyldigt image til afspilleren.
+STR_UPDATE_BATTERY_LOW = Batteriet er for lavt. Tilslut USB, og skub drevene ud igen.
 STR_DIAG_TITLE = Diagnostik
 STR_DIAG_KEY_TEST = Tasttest
 STR_DIAG_FRAME_TIME = Billedtid

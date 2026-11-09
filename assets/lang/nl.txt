@@ -213,6 +213,7 @@ STR_UPDATE_FAILED = Update mislukt
 STR_UPDATE_RETRY = Kopieer het bestand opnieuw en probeer vóór het uitzetten.
 STR_UPDATE_NOT_INSTALLED = Update niet geïnstalleerd
 STR_UPDATE_INVALID_IMAGE = {0} is geen geldig image voor deze speler.
+STR_UPDATE_BATTERY_LOW = Batterij te leeg. Sluit USB aan en werp de stations opnieuw uit.
 STR_DIAG_TITLE = Diagnostiek
 STR_DIAG_KEY_TEST = Toetstest
 STR_DIAG_FRAME_TIME = Frametijd

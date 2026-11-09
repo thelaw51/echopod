@@ -212,6 +212,7 @@ STR_UPDATE_FAILED = アップデート失敗
 STR_UPDATE_RETRY = 電源を切る前に、ファイルをコピーし直してやり直してください。
 STR_UPDATE_NOT_INSTALLED = アップデート未インストール
 STR_UPDATE_INVALID_IMAGE = {0}は本機用のイメージではありません。
+STR_UPDATE_BATTERY_LOW = バッテリー残量が不足しています。USBを接続して、ドライブをもう一度取り出してください。
 STR_DIAG_TITLE = 診断
 STR_DIAG_KEY_TEST = キーテスト
 STR_DIAG_FRAME_TIME = フレーム時間

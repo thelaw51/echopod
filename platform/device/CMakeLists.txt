@@ -154,6 +154,8 @@ set(ECHO_OVERLAY_IMPORTS
     board_audio_stream_play
     board_audio_stream_ring
     board_audio_volume_level
+    board_battery_gauge
+    board_battery_restart
     board_display_service
     board_start_record_update
     board_wait_for_key
