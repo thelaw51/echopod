@@ -64,10 +64,13 @@ jobs:
       # fonts_up_to_date and sort_fold_up_to_date also fail on a clean upstream
       # checkout outside the maintainer's machine (generated files depend on the
       # clang-format version), so they don't gate a release. Drop the exclusion
-      # once they pass here.
+      # once they pass here. The build is strict C11, where glibc hides POSIX
+      # calls the simulator uses (ftruncate, fileno); macOS doesn't, so
+      # _DEFAULT_SOURCE gives Linux the same headers.
       - name: Build and test (dev preset)
         env:
           CC: clang
+          CFLAGS: -D_DEFAULT_SOURCE
         run: |
           cmake --preset dev
           cmake --build --preset dev --parallel
