@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### New
+
+- **Playlists made on the player.** Hold ▶ on a song and choose Add to playlist. Your playlists appear at the top of Music → Playlists, up to 16 of 200 songs each, and survive a rescan. Hold ▶ on a song in one to remove it, or on the playlist to delete it. They're numbered (Playlist 1, Playlist 2), since the player has no keyboard.
+
 ### Safer installs
 
 - **An update or the way back to FiiO no longer starts on a low battery.** Installs run after you eject or unplug, so they could start on battery. On battery the player now waits a few seconds for a steady reading and refuses below about 30 % (3.71 V), with "Battery too low. Plug in USB, then eject the drives again." On USB power it installs as before. Diagnostics → Last update shows the refusal as code 8.

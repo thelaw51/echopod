@@ -27,6 +27,7 @@ static LibrarySection group_section_of(BrowseKind kind)
     case BROWSE_PLAYLIST_TRACKS:
         return LIBRARY_PLAYLISTS;
     case BROWSE_GROUP_TRACKS:
+    case BROWSE_TRACK_LIST:
     case BROWSE_ARTISTS:
     case BROWSE_ALBUMS:
     case BROWSE_ALL_SONGS:
@@ -160,6 +161,25 @@ static uint32_t folder_item_count(const Library *library, uint32_t subject)
     return (uint32_t)folder.subfolder_count + folder.track_count;
 }
 
+static uint32_t track_list_count(const Library *library, uint16_t list)
+{
+    const LibraryTrackLists *lists = library->track_lists;
+    return lists != NULL ? lists->count(lists->context, list) : 0;
+}
+
+static bool track_list_item(const Library *library, uint16_t list, uint32_t position,
+                            BrowseItem *item)
+{
+    const LibraryTrackLists *lists = library->track_lists;
+    uint16_t track = 0;
+    if (lists == NULL || !lists->track(lists->context, list, position, &track) ||
+        track >= library_count(library, LIBRARY_TRACKS)) {
+        return false;
+    }
+    *item = make_item(BROWSE_ITEM_TRACK, LIBRARY_ARTISTS, track);
+    return true;
+}
+
 uint32_t browse_count(const Library *library, BrowseQuery query)
 {
     switch (query.kind) {
@@ -184,6 +204,8 @@ uint32_t browse_count(const Library *library, BrowseQuery query)
         return library_count(library, LIBRARY_PLAYLISTS);
     case BROWSE_GROUP_TRACKS:
         return group_track_count(library, query);
+    case BROWSE_TRACK_LIST:
+        return track_list_count(library, query.subject);
     }
     return 0;
 }
@@ -285,6 +307,8 @@ bool browse_item(const Library *library, BrowseQuery query, uint32_t position, B
         return folder_item(library, query.subject, position, item);
     case BROWSE_GROUP_TRACKS:
         return group_track_item(library, query, position, item);
+    case BROWSE_TRACK_LIST:
+        return track_list_item(library, query.subject, position, item);
     }
     return false;
 }
@@ -463,6 +487,7 @@ static bool subject_title(const Library *library, BrowseQuery query, char *buffe
     case BROWSE_ALBUMS:
     case BROWSE_ALL_SONGS:
     case BROWSE_PLAYLISTS:
+    case BROWSE_TRACK_LIST:
         return false;
     }
     return false;
@@ -493,6 +518,8 @@ bool browse_title(const Library *library, BrowseQuery query, char *buffer, size_
     case BROWSE_PLAYLIST_TRACKS:
     case BROWSE_GROUP_TRACKS:
         return subject_title(library, query, buffer, capacity);
+    case BROWSE_TRACK_LIST:
+        return false;
     }
     return false;
 }

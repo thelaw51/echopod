@@ -5,19 +5,26 @@
 #include "default_theme.h"
 #include "fake_hal.h"
 #include "fixture_library.h"
+#include "player.h"
 
 static FixtureLibrary fixture;
 static BrowsePool pool;
 static FavoritesStore favorites;
+static UserPlaylists playlists;
+static Player player;
+static uint8_t empty_playlists[USER_PLAYLIST_FILE_BYTES];
 
 static BrowseScreen *opened(BrowseQuery query)
 {
     fake_hal_reset();
+    fake_hal_add_file(USER_PLAYLISTS_PATH, empty_playlists, sizeof empty_playlists);
     Library *library = fixture_library_open(&fixture);
     favorites = (FavoritesStore){.library = library};
-    browse_pool_init(
-        &pool,
-        (BrowsePoolConfig){.library = library, .theme = &DEFAULT_THEME, .favorites = &favorites});
+    user_playlists_load(&playlists, library);
+    browse_pool_init(&pool, (BrowsePoolConfig){.library = library,
+                                               .theme = &DEFAULT_THEME,
+                                               .favorites = &favorites,
+                                               .playlists = &playlists});
     Screen *screen = browse_pool_open(&pool, 0, query);
     screen->enter(screen->context, 0);
     return screen->context;
@@ -157,6 +164,188 @@ static void opening_another_list_at_the_same_level_shows_its_own_rows(void)
     check_rows_match_the_library(artists->context, 3);
 }
 
+static int playlist_with_tracks(int tracks)
+{
+    int slot = user_playlists_create(&playlists);
+    for (int track = 0; track < tracks; track++) {
+        CHECK_EQUAL(USER_PLAYLISTS_ADDED,
+                    user_playlists_add_track(&playlists, slot, (uint16_t)track));
+    }
+    return slot;
+}
+
+static ScreenAction press_play(BrowseScreen *browse, KeyGesture gesture)
+{
+    return browse->screen.handle_key(browse, (KeyEvent){.key = KEY_PLAY, .gesture = gesture}, 0);
+}
+
+static void playlists_made_on_the_player_come_first(void)
+{
+    BrowseScreen *lists = opened(browse_root_query(BROWSE_PLAYLISTS));
+    uint32_t card_lists = lists->count;
+    playlist_with_tracks(2);
+    lists->screen.enter(lists, 0);
+    CHECK_EQUAL(card_lists + 1, lists->count);
+    CHECK(strcmp("Playlist 1", lists->model.label(lists, 0)) == 0);
+    CHECK(lists->model.opens(lists, 0));
+    for (int index = 1; index < (int)lists->count; index++) {
+        CHECK(section_at(lists, index - 1) <= section_at(lists, index));
+    }
+}
+
+static void a_player_playlist_opens_as_its_tracks(void)
+{
+    BrowseScreen *lists = opened(browse_root_query(BROWSE_PLAYLISTS));
+    playlist_with_tracks(3);
+    lists->screen.enter(lists, 0);
+    list_view_select(&lists->list, 0, 0);
+    ScreenAction action = press_play(lists, KEY_GESTURE_PRESS);
+    CHECK_EQUAL(SCREEN_ACTION_PUSH, action.type);
+    BrowseScreen *tracks = action.target->context;
+    tracks->screen.enter(tracks, 0);
+    CHECK_EQUAL(BROWSE_TRACK_LIST, tracks->query.kind);
+    CHECK_EQUAL(3, tracks->count);
+    CHECK(strcmp("Playlist 1", tracks->title) == 0);
+    CHECK(!tracks->model.opens(tracks, 0));
+}
+
+static void a_removed_track_leaves_the_open_playlist(void)
+{
+    opened(browse_root_query(BROWSE_PLAYLISTS));
+    int slot = playlist_with_tracks(3);
+    Screen *screen = browse_pool_open(&pool, 1, user_playlists_query(slot, false));
+    BrowseScreen *tracks = screen->context;
+    screen->enter(tracks, 0);
+    list_view_select(&tracks->list, 2, 0);
+    CHECK(user_playlists_remove(&playlists, slot, 0));
+    CHECK(user_playlists_remove(&playlists, slot, 0));
+    screen->enter(tracks, 0);
+    CHECK_EQUAL(1, tracks->count);
+    CHECK_EQUAL(0, tracks->list.selected);
+}
+
+static void deleting_a_playlist_takes_its_row_away(void)
+{
+    BrowseScreen *lists = opened(browse_root_query(BROWSE_PLAYLISTS));
+    uint32_t card_lists = lists->count;
+    playlist_with_tracks(1);
+    lists->screen.enter(lists, 0);
+    list_view_select(&lists->list, 0, 0);
+    ScreenAction action = press_play(lists, KEY_GESTURE_LONG_PRESS);
+    CHECK_EQUAL(SCREEN_ACTION_PUSH, action.type);
+    CHECK(action.target == &pool.song_actions.menu.screen);
+    CHECK_EQUAL(1, pool.song_actions.menu.config.item_count);
+    CHECK(strcmp("Delete playlist", pool.song_actions.items[0].label) == 0);
+    action = pool.song_actions.items[0].select(pool.song_actions.items[0].context);
+    CHECK_EQUAL(SCREEN_ACTION_POP, action.type);
+    lists->screen.enter(lists, 0);
+    CHECK_EQUAL(card_lists, lists->count);
+    CHECK_EQUAL(0, user_playlists_count(&playlists));
+}
+
+static BrowseScreen *opened_with_player(BrowseQuery query)
+{
+    opened(query);
+    player_init(&player, pool.config.library);
+    pool.config.player = &player;
+    Screen *screen = browse_pool_open(&pool, 0, query);
+    screen->enter(screen->context, 0);
+    return screen->context;
+}
+
+static ScreenAction choose_action(int item)
+{
+    MenuItem *chosen = &pool.song_actions.items[item];
+    return chosen->select(chosen->context);
+}
+
+static BrowseQuery first_album(void)
+{
+    return (BrowseQuery){.kind = BROWSE_ALBUM_TRACKS,
+                         .group = LIBRARY_ARTISTS,
+                         .subject = 0,
+                         .artist = LIBRARY_NONE};
+}
+
+static void holding_a_song_adds_it_to_a_new_then_an_existing_playlist(void)
+{
+    BrowseScreen *album = opened_with_player(first_album());
+    list_view_select(&album->list, album->extra, 0);
+    CHECK_EQUAL(SCREEN_ACTION_PUSH, press_play(album, KEY_GESTURE_LONG_PRESS).type);
+    CHECK_EQUAL(3, pool.song_actions.menu.config.item_count);
+    CHECK(strcmp("Add to playlist", pool.song_actions.items[2].label) == 0);
+    CHECK_EQUAL(SCREEN_ACTION_NONE, choose_action(2).type);
+    CHECK_EQUAL(1, pool.song_actions.menu.config.item_count);
+    CHECK(strcmp("New playlist", pool.song_actions.items[0].label) == 0);
+    CHECK_EQUAL(SCREEN_ACTION_POP, choose_action(0).type);
+    CHECK_EQUAL(1, user_playlists_count(&playlists));
+
+    list_view_select(&album->list, album->extra + 1, 0);
+    press_play(album, KEY_GESTURE_LONG_PRESS);
+    choose_action(2);
+    CHECK_EQUAL(2, pool.song_actions.menu.config.item_count);
+    CHECK(strcmp("Playlist 1", pool.song_actions.items[1].label) == 0);
+    CHECK_EQUAL(SCREEN_ACTION_POP, choose_action(1).type);
+    CHECK_EQUAL(1, user_playlists_count(&playlists));
+    CHECK_EQUAL(2, browse_count(pool.config.library, user_playlists_query(0, false)));
+}
+
+static void a_song_held_inside_a_playlist_can_be_removed(void)
+{
+    opened_with_player(browse_root_query(BROWSE_PLAYLISTS));
+    int slot = playlist_with_tracks(3);
+    Screen *screen = browse_pool_open(&pool, 1, user_playlists_query(slot, false));
+    BrowseScreen *tracks = screen->context;
+    screen->enter(tracks, 0);
+    CHECK_EQUAL(1, tracks->extra);
+    list_view_select(&tracks->list, tracks->extra + 1, 0);
+    press_play(tracks, KEY_GESTURE_LONG_PRESS);
+    CHECK_EQUAL(4, pool.song_actions.menu.config.item_count);
+    CHECK(strcmp("Remove from playlist", pool.song_actions.items[3].label) == 0);
+    CHECK_EQUAL(SCREEN_ACTION_POP, choose_action(3).type);
+    screen->enter(tracks, 0);
+    CHECK_EQUAL(1 + 2, tracks->count);
+    uint16_t track = 0;
+    CHECK(pool.config.library->track_lists->track(pool.config.library->track_lists->context,
+                                                  (uint16_t)slot, 1, &track));
+    CHECK_EQUAL(2, track);
+}
+
+static void playing_a_playlist_survives_editing_it(void)
+{
+    opened_with_player(browse_root_query(BROWSE_PLAYLISTS));
+    int slot = playlist_with_tracks(3);
+    Screen *screen = browse_pool_open(&pool, 1, user_playlists_query(slot, false));
+    BrowseScreen *tracks = screen->context;
+    screen->enter(tracks, 0);
+    list_view_select(&tracks->list, tracks->extra + 2, 0);
+    press_play(tracks, KEY_GESTURE_PRESS);
+    CHECK_EQUAL(2, player_status(&player).track);
+    CHECK(user_playlists_delete(&playlists, slot));
+    BrowseQuery pinned = user_playlists_query(slot, true);
+    CHECK_EQUAL(3, browse_count(pool.config.library, pinned));
+}
+
+static void a_playing_playlist_resumes_after_a_restart(void)
+{
+    opened_with_player(browse_root_query(BROWSE_PLAYLISTS));
+    int slot = playlist_with_tracks(3);
+    Screen *screen = browse_pool_open(&pool, 1, user_playlists_query(slot, false));
+    BrowseScreen *tracks = screen->context;
+    screen->enter(tracks, 0);
+    list_view_select(&tracks->list, tracks->extra + 1, 0);
+    press_play(tracks, KEY_GESTURE_PRESS);
+    CHECK(player_save(&player));
+    Library *library = &fixture.library;
+    user_playlists_load(&playlists, library);
+    Player resumed;
+    player_init(&resumed, library);
+    CHECK(player_restore(&resumed));
+    CHECK_EQUAL(1, player_status(&resumed).track);
+    player_skip(&resumed, 1);
+    CHECK_EQUAL(2, player_status(&resumed).track);
+}
+
 int main(void)
 {
     static const TestCase cases[] = {
@@ -169,6 +358,14 @@ int main(void)
         TEST_CASE(coming_back_to_a_list_reads_nothing),
         TEST_CASE(a_favorite_added_elsewhere_shows_when_the_list_comes_back),
         TEST_CASE(opening_another_list_at_the_same_level_shows_its_own_rows),
+        TEST_CASE(playlists_made_on_the_player_come_first),
+        TEST_CASE(a_player_playlist_opens_as_its_tracks),
+        TEST_CASE(a_removed_track_leaves_the_open_playlist),
+        TEST_CASE(deleting_a_playlist_takes_its_row_away),
+        TEST_CASE(holding_a_song_adds_it_to_a_new_then_an_existing_playlist),
+        TEST_CASE(a_song_held_inside_a_playlist_can_be_removed),
+        TEST_CASE(playing_a_playlist_survives_editing_it),
+        TEST_CASE(a_playing_playlist_resumes_after_a_restart),
     };
     return test_run_all(cases, TEST_CASE_COUNT(cases));
 }

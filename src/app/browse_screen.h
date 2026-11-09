@@ -12,6 +12,7 @@
 #include "ui/screen.h"
 #include "ui/theme.h"
 #include "ui/toast.h"
+#include "user_playlists.h"
 
 enum {
     BROWSE_DEPTH = 6,
@@ -20,11 +21,14 @@ enum {
     BROWSE_LABEL_CAPACITY = 128,
     BROWSE_DETAIL_CAPACITY = 16,
     BROWSE_TITLE_CAPACITY = 96,
-    SONG_ACTION_COUNT = 2
+    SONG_ACTION_COUNT = 2,
+    BROWSE_ACTION_CAPACITY = USER_PLAYLIST_SLOTS + 1,
+    BROWSE_PICK_LABEL_CAPACITY = 32
 };
 
 typedef struct BrowseRowStamp {
     uint32_t favorites_revision;
+    uint32_t playlists_revision;
     bool portrait;
 } BrowseRowStamp;
 
@@ -49,6 +53,8 @@ typedef struct BrowseScreen {
     uint32_t count;
     bool favorites_only;
     int extra;
+    int user_rows;
+    int list_slot;
     SpokenKind shelf;
     bool shelf_root;
     bool in_flow;
@@ -64,6 +70,7 @@ typedef struct BrowsePoolConfig {
     Player *player;
     Screen *now_playing;
     FavoritesStore *favorites;
+    UserPlaylists *playlists;
     Toast *toast;
     SpokenStore *spoken;
     const uint8_t *options;
@@ -71,12 +78,22 @@ typedef struct BrowsePoolConfig {
     void *flow_context;
 } BrowsePoolConfig;
 
+typedef struct PlaylistPick {
+    BrowsePool *pool;
+    int slot;
+} PlaylistPick;
+
 typedef struct SongActions {
     MenuScreen menu;
-    MenuItem items[SONG_ACTION_COUNT];
+    MenuItem items[BROWSE_ACTION_CAPACITY];
+    PlaylistPick picks[BROWSE_ACTION_CAPACITY];
+    char labels[BROWSE_ACTION_CAPACITY][BROWSE_PICK_LABEL_CAPACITY];
     uint16_t track;
+    uint32_t position;
+    int list_slot;
     uint32_t now_ms;
     char title[BROWSE_LABEL_CAPACITY];
+    char message[BROWSE_LABEL_CAPACITY];
 } SongActions;
 
 struct BrowsePool {

@@ -20,8 +20,10 @@ void library_store_close(LibraryStore *store)
 
 bool library_store_open(LibraryStore *store)
 {
+    const LibraryTrackLists *track_lists = store->library.track_lists;
     library_store_close(store);
-    store->library = (Library){.source = {.read = NULL, .context = NULL}};
+    store->library =
+        (Library){.source = {.read = NULL, .context = NULL}, .track_lists = track_lists};
     if (!hal_file_open(&store->file, LIBRARY_STORE_PATH)) {
         return false;
     }
@@ -29,6 +31,7 @@ bool library_store_open(LibraryStore *store)
     block_cache_init(&store->cache, file_source, store->file.size);
     LibraryStatus status =
         library_open(&store->library, block_cache_source(&store->cache), store->file.size);
+    store->library.track_lists = track_lists;
     store->available = status == LIBRARY_OK;
     if (!store->available) {
         hal_file_close(&store->file);
