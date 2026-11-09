@@ -391,7 +391,7 @@ build/dev/platform/sim/echo_sim --card ~/Music --system-dir build/library
 ## Simulator power and display
 
 - `hal_display_set_power(false)` blanks the window. Brightness dims the window (level 1 is about a quarter of full), but screenshots hold the undimmed panel.
-- The battery is fixed: 80 % by default, or `--battery N` and `--charging`.
+- The battery is fixed: 80 % by default, or `--battery N` and `--charging`. At 13 % or less the battery reads below the start level, so the player shows "Battery low" and switches off (or opens the charge screen with `--charging`).
 - Gain and output are stored but don't change the sound.
 - `hal_power_off()` ends the run loop, and the simulator exits normally.
 
