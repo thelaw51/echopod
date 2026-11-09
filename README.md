@@ -111,7 +111,7 @@ Headless runs use a virtual clock, so scripted screenshots are deterministic.
 |---|---|---|---|
 | Volume up / down | Next / previous item (wraps on a single press, not while held) | Tap for volume; hold Vol+ for the next track, Vol− for the previous one | Forward / back 5 s per tap, 15 s steps while held |
 | Play | Select (a song plays the list from that song); hold on an album to add or remove it from Favorites | Play / pause; hold to seek | Jump to the chosen time |
-| Menu | | | |
+| Menu | | Up Next; hold for the Equalizer. Settings → Buttons → Menu button can make it next track (hold for Up Next) or Shuffle & repeat (tap changes shuffle, hold changes repeat) | |
 | Back | Back; hold to go home | Back; hold to go home | Cancel |
 | Power | Screen off or on; hold 2 s to turn off | Same | Same |
 
