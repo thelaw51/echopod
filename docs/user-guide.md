@@ -192,7 +192,17 @@ With **Folders & playlists** set to Cover Flow, a playlist opens as a Cover Flow
 
 Put a `.lrc` file next to a song with the same name (`01 Come Together.flac` and `01 Come Together.lrc`; `.LRC` works too), and Now Playing shows the lyrics: in landscape under the title, in place of the artist, album and format lines; in portrait in place of the cover. Synced lyrics (lines starting with `[mm:ss.xx]`) scroll with the song, the current line in bold in the middle, and a current line too long for the screen scrolls sideways. A line can carry several times (`[00:12.00][01:30.00]Chorus`), `[offset:+500]` shows every line half a second earlier (`-` later), and word times such as `<00:12.50>` are skipped. A file without times shows as plain text that moves down the song as it plays. The lyrics are hidden while you seek (hold ▶).
 
-The file must be UTF-8 (with or without a BOM); other encodings, such as the GBK some Chinese sites use, show garbled. Lyrics show in every script the player draws (see Characters in `docs/known-issues.md`). The player reads at most 3 KB of lyric text and 160 lines per song (about two to three times a typical song); anything past that is left out. Lyrics stored inside the music file (ID3 `USLT`/`SYLT`, a Vorbis `LYRICS` tag) aren't read. **Settings → Library → Lyrics → Off** hides them.
+The file must be UTF-8 (with or without a BOM); other encodings, such as the GBK some Chinese sites use, show garbled. Lyrics show in every script the player draws (see Characters in `docs/known-issues.md`). The player reads at most 3 KB of lyric text and 160 lines per song (about two to three times a typical song); anything past that is left out. **Settings → Library → Lyrics → Off** hides them.
+
+### Lyrics inside the music file
+
+When a song has no `.lrc` file, Now Playing uses lyrics saved in the song's own tags:
+
+- **MP3:** synced lyrics (`SYLT`, with times in milliseconds) first, otherwise unsynced lyrics (`USLT`), in any ID3v2 text encoding. Synced lyrics written one syllable at a time, as karaoke taggers do, are joined back into lines.
+- **FLAC, Ogg Vorbis and Opus:** the `LYRICS` tag, otherwise `UNSYNCEDLYRICS`.
+- **M4A (AAC and ALAC):** the lyrics tag iTunes and Mp3tag write.
+
+Tag lyrics that contain `[mm:ss.xx]` times scroll with the song just like a `.lrc` file. A `.lrc` file always wins over the tags. The same 3 KB and 160-line limits apply, and the player reads at most 64 KB of a lyrics tag.
 
 ## Clock
 
