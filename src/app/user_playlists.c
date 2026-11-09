@@ -123,7 +123,9 @@ static uint32_t list_count(void *context, uint16_t list)
     }
     uint32_t count = 0;
     for (uint16_t index = 0; index < store->loaded.count; index++) {
-        count += store->loaded.tracks[index] != USER_PLAYLIST_NO_TRACK ? 1 : 0;
+        if (store->loaded.tracks[index] != USER_PLAYLIST_NO_TRACK) {
+            count++;
+        }
     }
     return count;
 }
@@ -170,7 +172,9 @@ uint16_t user_playlists_count(const UserPlaylists *store)
 {
     uint16_t count = 0;
     for (int slot = 0; slot < USER_PLAYLIST_SLOTS; slot++) {
-        count += store->numbers[slot] != 0 ? 1 : 0;
+        if (store->numbers[slot] != 0) {
+            count++;
+        }
     }
     return count;
 }
