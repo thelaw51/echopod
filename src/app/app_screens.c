@@ -136,6 +136,7 @@ static void build_music(AppScreens *screens, AppScreensContext context)
         .player = context.player,
         .now_playing = &screens->now_playing.screen,
         .favorites = context.favorites,
+        .playlists = context.playlists,
         .toast = context.toast,
         .spoken = context.spoken,
         .options = context.settings->settings.options,

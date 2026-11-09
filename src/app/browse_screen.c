@@ -72,14 +72,16 @@ static void forget_rows(BrowseScreen *browse)
 static BrowseRowStamp row_stamp(const BrowseScreen *browse)
 {
     const BrowsePoolConfig *config = &browse->pool->config;
-    return (BrowseRowStamp){.favorites_revision =
-                                config->favorites != NULL ? config->favorites->revision : 0,
-                            .portrait = theme_is_portrait(config->theme)};
+    return (BrowseRowStamp){
+        .favorites_revision = config->favorites != NULL ? config->favorites->revision : 0,
+        .playlists_revision = config->playlists != NULL ? config->playlists->revision : 0,
+        .portrait = theme_is_portrait(config->theme)};
 }
 
 static bool stamps_match(BrowseRowStamp first, BrowseRowStamp second)
 {
     return first.favorites_revision == second.favorites_revision &&
+           first.playlists_revision == second.playlists_revision &&
            first.portrait == second.portrait;
 }
 
@@ -111,7 +113,7 @@ static uint32_t source_position(const BrowseScreen *browse, int index)
 
 static bool item_at(const BrowseScreen *browse, int index, BrowseItem *item)
 {
-    index -= browse->extra;
+    index -= browse->extra + browse->user_rows;
     return index >= 0 && browse_item(browse->pool->config.library, browse->query,
                                      source_position(browse, index), item);
 }
@@ -147,6 +149,25 @@ static void describe_spoken(const BrowseScreen *browse, BrowseItem item, char *d
     spoken_store_describe(spoken, row);
 }
 
+static int user_row_slot(const BrowseScreen *browse, int index)
+{
+    int row = index - browse->extra;
+    if (browse->pool->config.playlists == NULL || row < 0 || row >= browse->user_rows) {
+        return USER_PLAYLISTS_NO_SLOT;
+    }
+    return user_playlists_slot_at(browse->pool->config.playlists, (uint16_t)row);
+}
+
+static void playlist_name(const BrowsePool *pool, int slot, char *buffer, size_t capacity)
+{
+    char number[BROWSE_DETAIL_CAPACITY];
+    StringBuilder digits = string_builder_make(number, sizeof number);
+    string_builder_append_unsigned(&digits, user_playlists_number(pool->config.playlists, slot));
+    const char *arguments[] = {number};
+    StringBuilder builder = string_builder_make(buffer, capacity);
+    i18n_format(&builder, STR_MENU_PLAYLIST_NUMBER, arguments, 1);
+}
+
 static void load_row(BrowseScreen *browse, BrowseRows *rows, int row, int index)
 {
     BrowseText text = {rows->labels[row], BROWSE_LABEL_CAPACITY, rows->details[row],
@@ -158,6 +179,12 @@ static void load_row(BrowseScreen *browse, BrowseRows *rows, int row, int index)
         StringBuilder label = string_builder_make(rows->labels[row], BROWSE_LABEL_CAPACITY);
         string_builder_append(&label, i18n_text(index == browse->extra - 1 ? STR_MENU_SHUFFLE_ALL
                                                                            : STR_MENU_PLAY_ALL));
+        return;
+    }
+    if (index < browse->extra + browse->user_rows) {
+        playlist_name(browse->pool, user_row_slot(browse, index), rows->labels[row],
+                      BROWSE_LABEL_CAPACITY);
+        rows->opens[row] = true;
         return;
     }
     if (!item_at(browse, index, &item) ||
@@ -338,19 +365,30 @@ static ScreenAction start_list(BrowseScreen *browse, BrowseQuery source, uint32_
     return start_from(browse, start);
 }
 
+static BrowseQuery playback_query(BrowseScreen *browse, BrowseQuery query)
+{
+    UserPlaylists *playlists = browse->pool->config.playlists;
+    if (query.kind != BROWSE_TRACK_LIST || playlists == NULL) {
+        return query;
+    }
+    user_playlists_pin(playlists, browse->list_slot);
+    return user_playlists_query(browse->list_slot, true);
+}
+
 static ScreenAction play_from(BrowseScreen *browse, int index)
 {
     if (is_loaded_track(browse, index)) {
         return screen_action_push(browse->pool->config.now_playing);
     }
-    return start_list(browse, browse->query, (uint32_t)(index - browse->extra));
+    return start_list(browse, playback_query(browse, browse->query),
+                      (uint32_t)(index - browse->extra - browse->user_rows));
 }
 
 static ScreenAction play_all(BrowseScreen *browse, bool shuffled)
 {
     BrowseQuery source = browse->query.kind == BROWSE_GROUP_ALBUMS
                              ? browse_group_tracks(browse->query)
-                             : browse->query;
+                             : playback_query(browse, browse->query);
     uint32_t count = browse_count(browse->pool->config.library, source);
     uint32_t seed = hal_clock_microseconds();
     if (count == 0) {
@@ -436,12 +474,28 @@ static bool resumes_books(const BrowseScreen *browse, BrowseItem item)
            item.kind == BROWSE_ITEM_FOLDER;
 }
 
+static ScreenAction open_user_playlist(BrowseScreen *browse, int slot)
+{
+    BrowsePool *pool = browse->pool;
+    if (slot == USER_PLAYLISTS_NO_SLOT) {
+        return screen_action_none();
+    }
+    Screen *next = browse_pool_open(pool, browse->level + 1, user_playlists_query(slot, false));
+    if (next == NULL) {
+        return screen_action_none();
+    }
+    return screen_action_push(next);
+}
+
 static ScreenAction select_row(void *context, int index)
 {
     BrowseScreen *browse = context;
     BrowseItem item;
     if (index < browse->extra) {
         return play_all(browse, index == browse->extra - 1);
+    }
+    if (index < browse->extra + browse->user_rows) {
+        return open_user_playlist(browse, user_row_slot(browse, index));
     }
     if (!item_at(browse, index, &item)) {
         return screen_action_none();
@@ -539,12 +593,117 @@ static ScreenAction add_song_to_up_next(void *context)
     return queue_song(context, false);
 }
 
+static ScreenAction finish_action(BrowsePool *pool, const char *message)
+{
+    if (pool->config.toast != NULL && message != NULL) {
+        toast_show(pool->config.toast, message, pool->song_actions.now_ms);
+    }
+    return screen_action_pop();
+}
+
+static Screen *show_actions(BrowsePool *pool, int count)
+{
+    SongActions *actions = &pool->song_actions;
+    MenuConfig config = {.title = actions->title,
+                         .items = actions->items,
+                         .item_count = count,
+                         .theme = pool->config.theme};
+    return menu_screen_init(&actions->menu, config);
+}
+
+static const char *added_message(BrowsePool *pool, int slot, UserPlaylistsResult result)
+{
+    SongActions *actions = &pool->song_actions;
+    char name[BROWSE_PICK_LABEL_CAPACITY];
+    switch (result) {
+    case USER_PLAYLISTS_ADDED: {
+        playlist_name(pool, slot, name, sizeof name);
+        const char *arguments[] = {name};
+        StringBuilder builder = string_builder_make(actions->message, sizeof actions->message);
+        i18n_format(&builder, STR_MENU_ADDED_TO_PLAYLIST, arguments, 1);
+        return actions->message;
+    }
+    case USER_PLAYLISTS_FULL:
+        return i18n_text(STR_MENU_PLAYLIST_FULL);
+    case USER_PLAYLISTS_FAILED:
+        break;
+    }
+    return i18n_text(STR_MENU_PLAYLIST_SAVE_FAILED);
+}
+
+static ScreenAction pick_playlist(void *context)
+{
+    PlaylistPick *pick = context;
+    BrowsePool *pool = pick->pool;
+    UserPlaylists *playlists = pool->config.playlists;
+    int slot = pick->slot == USER_PLAYLISTS_NO_SLOT ? user_playlists_create(playlists) : pick->slot;
+    if (slot == USER_PLAYLISTS_NO_SLOT) {
+        return finish_action(pool, i18n_text(STR_MENU_PLAYLIST_SAVE_FAILED));
+    }
+    UserPlaylistsResult result =
+        user_playlists_add_track(playlists, slot, pool->song_actions.track);
+    return finish_action(pool, added_message(pool, slot, result));
+}
+
+static void add_pick(BrowsePool *pool, int item, int slot, const char *label)
+{
+    SongActions *actions = &pool->song_actions;
+    actions->picks[item] = (PlaylistPick){.pool = pool, .slot = slot};
+    actions->items[item] =
+        (MenuItem){.label = label, .select = pick_playlist, .context = &actions->picks[item]};
+}
+
+static ScreenAction choose_playlist(void *context)
+{
+    BrowsePool *pool = context;
+    SongActions *actions = &pool->song_actions;
+    UserPlaylists *playlists = pool->config.playlists;
+    uint16_t existing = user_playlists_count(playlists);
+    int count = 0;
+    if (existing < USER_PLAYLIST_SLOTS) {
+        add_pick(pool, count++, USER_PLAYLISTS_NO_SLOT, i18n_text(STR_MENU_NEW_PLAYLIST));
+    }
+    for (uint16_t index = 0; index < existing && count < BROWSE_ACTION_CAPACITY; index++) {
+        int slot = user_playlists_slot_at(playlists, index);
+        playlist_name(pool, slot, actions->labels[count], BROWSE_PICK_LABEL_CAPACITY);
+        add_pick(pool, count, slot, actions->labels[count]);
+        count++;
+    }
+    StringBuilder title = string_builder_make(actions->title, sizeof actions->title);
+    string_builder_append(&title, i18n_text(STR_MENU_ADD_TO_PLAYLIST));
+    Screen *menu = show_actions(pool, count);
+    menu->enter(menu->context, actions->now_ms);
+    return screen_action_none();
+}
+
+static ScreenAction remove_from_playlist(void *context)
+{
+    BrowsePool *pool = context;
+    SongActions *actions = &pool->song_actions;
+    if (!user_playlists_remove(pool->config.playlists, actions->list_slot, actions->position)) {
+        return finish_action(pool, i18n_text(STR_MENU_PLAYLIST_SAVE_FAILED));
+    }
+    return finish_action(pool, NULL);
+}
+
+static ScreenAction delete_playlist(void *context)
+{
+    BrowsePool *pool = context;
+    SongActions *actions = &pool->song_actions;
+    if (!user_playlists_delete(pool->config.playlists, actions->list_slot)) {
+        return finish_action(pool, i18n_text(STR_MENU_PLAYLIST_SAVE_FAILED));
+    }
+    return finish_action(pool, NULL);
+}
+
 static ScreenAction open_song_actions(BrowseScreen *browse, int index, uint16_t track)
 {
     BrowsePool *pool = browse->pool;
     SongActions *actions = &pool->song_actions;
     actions->track = track;
     actions->now_ms = browse->now_ms;
+    actions->list_slot = browse->list_slot;
+    actions->position = (uint32_t)(index - browse->extra - browse->user_rows);
     StringBuilder title = string_builder_make(actions->title, sizeof actions->title);
     string_builder_append(&title, row_label(browse, index));
     actions->items[0] = (MenuItem){
@@ -552,17 +711,43 @@ static ScreenAction open_song_actions(BrowseScreen *browse, int index, uint16_t 
     actions->items[1] = (MenuItem){.label = i18n_text(STR_MENU_ADD_TO_UP_NEXT),
                                    .select = add_song_to_up_next,
                                    .context = pool};
-    MenuConfig config = {.title = actions->title,
-                         .items = actions->items,
-                         .item_count = SONG_ACTION_COUNT,
-                         .theme = pool->config.theme};
-    return screen_action_push(menu_screen_init(&actions->menu, config));
+    int count = SONG_ACTION_COUNT;
+    if (pool->config.playlists != NULL) {
+        actions->items[count++] = (MenuItem){.label = i18n_text(STR_MENU_ADD_TO_PLAYLIST),
+                                             .select = choose_playlist,
+                                             .context = pool,
+                                             .opens = true};
+    }
+    if (pool->config.playlists != NULL && browse->list_slot != USER_PLAYLISTS_NO_SLOT) {
+        actions->items[count++] = (MenuItem){.label = i18n_text(STR_MENU_REMOVE_FROM_PLAYLIST),
+                                             .select = remove_from_playlist,
+                                             .context = pool};
+    }
+    return screen_action_push(show_actions(pool, count));
+}
+
+static ScreenAction open_playlist_actions(BrowseScreen *browse, int slot)
+{
+    BrowsePool *pool = browse->pool;
+    SongActions *actions = &pool->song_actions;
+    if (slot == USER_PLAYLISTS_NO_SLOT) {
+        return screen_action_none();
+    }
+    actions->now_ms = browse->now_ms;
+    actions->list_slot = slot;
+    playlist_name(pool, slot, actions->title, sizeof actions->title);
+    actions->items[0] = (MenuItem){
+        .label = i18n_text(STR_MENU_DELETE_PLAYLIST), .select = delete_playlist, .context = pool};
+    return screen_action_push(show_actions(pool, 1));
 }
 
 static ScreenAction hold_row(void *context, int index)
 {
     BrowseScreen *browse = context;
     BrowseItem item;
+    if (index >= browse->extra && index < browse->extra + browse->user_rows) {
+        return open_playlist_actions(browse, user_row_slot(browse, index));
+    }
     if (!item_at(browse, index, &item)) {
         return screen_action_none();
     }
@@ -583,6 +768,35 @@ static ScreenAction handle_key(void *context, KeyEvent event, uint32_t now_ms)
     return list_navigation_handle(&browse->list, event, now_ms, selection);
 }
 
+static void count_rows(BrowseScreen *browse)
+{
+    BrowsePool *pool = browse->pool;
+    BrowseQuery query = browse->query;
+    browse->count = browse_count(pool->config.library, query);
+    browse->extra = 0;
+    browse->user_rows = 0;
+    if (browse->count > 0 && pool->config.player != NULL) {
+        bool group = query.kind == BROWSE_GROUP_ALBUMS && query.group != LIBRARY_PLAYLISTS;
+        bool songs = query.kind == BROWSE_ALL_SONGS || query.kind == BROWSE_PLAYLIST_TRACKS ||
+                     query.kind == BROWSE_TRACK_LIST;
+        browse->extra = group ? 2 : songs ? 1 : 0;
+    }
+    if (query.kind == BROWSE_PLAYLISTS && pool->config.playlists != NULL) {
+        browse->user_rows = user_playlists_count(pool->config.playlists);
+    }
+    browse->count += (uint32_t)(browse->extra + browse->user_rows);
+}
+
+static void recount(BrowseScreen *browse, uint32_t now_ms)
+{
+    count_rows(browse);
+    forget_rows(browse);
+    int last = browse->count > 0 ? (int)browse->count - 1 : 0;
+    if (browse->list.selected > last) {
+        list_view_select(&browse->list, last, now_ms);
+    }
+}
+
 static void enter(void *context, uint32_t now_ms)
 {
     BrowseScreen *browse = context;
@@ -592,6 +806,9 @@ static void enter(void *context, uint32_t now_ms)
     browse->now_ms = now_ms;
     if (browse->favorites_only) {
         collect_favorites(browse);
+    }
+    if (browse->query.kind == BROWSE_PLAYLISTS || browse->query.kind == BROWSE_TRACK_LIST) {
+        recount(browse, now_ms);
     }
     list_view_restart_marquee(&browse->list, now_ms);
     refresh_rows(browse);
@@ -660,15 +877,13 @@ Screen *browse_pool_open(BrowsePool *pool, int level, BrowseQuery query)
     browse->shelf = SPOKEN_NONE;
     browse->shelf_root = false;
     browse->in_flow = false;
-    browse->count = browse_count(pool->config.library, query);
-    browse->extra = 0;
-    if (browse->count > 0 && pool->config.player != NULL) {
-        bool group = query.kind == BROWSE_GROUP_ALBUMS && query.group != LIBRARY_PLAYLISTS;
-        bool songs = query.kind == BROWSE_ALL_SONGS || query.kind == BROWSE_PLAYLIST_TRACKS;
-        browse->extra = group ? 2 : songs ? 1 : 0;
-    }
-    browse->count += (uint32_t)browse->extra;
+    browse->list_slot = USER_PLAYLISTS_NO_SLOT;
+    count_rows(browse);
     browse_title(pool->config.library, query, browse->title, sizeof browse->title);
+    if (query.kind == BROWSE_TRACK_LIST && pool->config.playlists != NULL) {
+        browse->list_slot = (int)(query.subject & ~USER_PLAYLISTS_PINNED);
+        playlist_name(pool, browse->list_slot, browse->title, sizeof browse->title);
+    }
     browse->model = (ListModel){.context = browse,
                                 .count = row_count,
                                 .label = row_label,

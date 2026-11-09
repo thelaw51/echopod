@@ -24,6 +24,7 @@
 #include "ui/menu_screen.h"
 #include "ui/message_screen.h"
 #include "ui/toast.h"
+#include "user_playlists.h"
 
 enum {
     HOME_ITEM_COUNT = 6,
@@ -97,6 +98,7 @@ typedef struct AppScreensContext {
     Player *player;
     SettingsStore *settings;
     FavoritesStore *favorites;
+    UserPlaylists *playlists;
     PowerPolicy *power;
     Toast *toast;
     CoverCache *covers;
