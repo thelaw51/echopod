@@ -9,6 +9,7 @@
 #include "hal/audio.h"
 #include "hal/clock.h"
 #include "hal/storage.h"
+#include "playback/embedded_lyrics.h"
 #include "settings/settings.h"
 #include "ui/header.h"
 #include "ui/icons.h"
@@ -446,6 +447,13 @@ static void read_lyrics(Lyrics *lyrics, HalFile file)
     lyrics_finish(lyrics);
 }
 
+static bool read_audio_file(void *context, uint32_t offset, void *buffer, uint32_t length)
+{
+    bool read = hal_file_read(*(const HalFile *)context, offset, buffer, length);
+    hal_audio_service();
+    return read;
+}
+
 static void load_lyrics(NowPlayingScreen *now_playing, const LibraryTrack *track)
 {
     NowPlayingLyrics *lyrics = &now_playing->lyrics;
@@ -463,11 +471,25 @@ static void load_lyrics(NowPlayingScreen *now_playing, const LibraryTrack *track
     for (; path[length] != '\0'; length++) {
         dot = path[length] == '.' ? length : path[length] == '/' ? 0 : dot;
     }
+    size_t at = dot > 0 ? dot : length;
+    char extension[EXTENSION_ROOM];
+    for (size_t index = 0; index < EXTENSION_ROOM; index++) {
+        extension[index] = path[at + index];
+    }
     HalFile file;
-    if (open_lyrics(path, dot > 0 ? dot : length, &file)) {
+    if (open_lyrics(path, at, &file)) {
         read_lyrics(&lyrics->lyrics, file);
         hal_file_close(&file);
         lyrics->ready = true;
+        return;
+    }
+    for (size_t index = 0; index < EXTENSION_ROOM; index++) {
+        path[at + index] = extension[index];
+    }
+    if (hal_file_open(&file, path)) {
+        ByteSource source = {.read = read_audio_file, .context = &file};
+        lyrics->ready = embedded_lyrics_read(source, file.size, path, &lyrics->lyrics);
+        hal_file_close(&file);
     }
 }
 

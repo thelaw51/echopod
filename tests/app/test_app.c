@@ -2550,6 +2550,36 @@ static void lyrics_in_capitals_are_found_and_the_setting_hides_them(void)
     CHECK(app_now_playing_lyric() == NULL);
 }
 
+static const uint8_t HELLS_BELLS_FLAC[] = "fLaC\x84\x00\x00\x33"
+                                          "\x06\x00\x00\x00vendor\x01\x00\x00\x00"
+                                          "\x21\x00\x00\x00LYRICS=[00:00.50]Embedded thunder";
+
+static void lyrics_in_the_track_tags_show_when_no_lrc_is_beside_it(void)
+{
+    start_app_with_library();
+    fake_hal_add_file("/AC DC/Back In Black/1-01 - Hells Bells.flac", HELLS_BELLS_FLAC,
+                      sizeof HELLS_BELLS_FLAC - 1);
+    play_first_album_track();
+    CHECK(title_is("Now Playing"));
+    fake_hal_audio_set_position(1000);
+    wait_ms(20);
+    CHECK(app_now_playing_lyric() != NULL);
+    CHECK_EQUAL(0, strcmp("Embedded thunder", app_now_playing_lyric()));
+}
+
+static void an_lrc_file_wins_over_lyrics_in_the_tags(void)
+{
+    start_app_with_library();
+    fake_hal_add_file("/AC DC/Back In Black/1-01 - Hells Bells.flac", HELLS_BELLS_FLAC,
+                      sizeof HELLS_BELLS_FLAC - 1);
+    fake_hal_add_file("/AC DC/Back In Black/1-01 - Hells Bells.lrc", HELLS_BELLS_LYRICS,
+                      sizeof HELLS_BELLS_LYRICS - 1);
+    play_first_album_track();
+    fake_hal_audio_set_position(1000);
+    wait_ms(20);
+    CHECK_EQUAL(0, strcmp("I'm a rolling thunder", app_now_playing_lyric()));
+}
+
 static void a_track_without_lyrics_shows_none(void)
 {
     start_app_with_library();
@@ -2990,6 +3020,8 @@ int main(void)
         TEST_CASE(a_large_status_bar_grows_the_portrait_status_band),
         TEST_CASE(power_on_hold_is_asked_for_at_the_next_start),
         TEST_CASE(synced_lyrics_beside_a_track_follow_its_position),
+        TEST_CASE(lyrics_in_the_track_tags_show_when_no_lrc_is_beside_it),
+        TEST_CASE(an_lrc_file_wins_over_lyrics_in_the_tags),
         TEST_CASE(lyrics_in_capitals_are_found_and_the_setting_hides_them),
         TEST_CASE(a_track_without_lyrics_shows_none),
         TEST_CASE(the_header_shows_the_time_only_while_the_clock_setting_is_on),
