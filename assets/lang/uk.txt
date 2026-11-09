@@ -212,6 +212,7 @@ STR_UPDATE_FAILED = Помилка оновлення
 STR_UPDATE_RETRY = Скопіюйте файл ще раз і повторіть до вимкнення.
 STR_UPDATE_NOT_INSTALLED = Оновлення не встановлено
 STR_UPDATE_INVALID_IMAGE = {0}: недійсний образ для цього плеєра.
+STR_UPDATE_BATTERY_LOW = Батарея розряджена. Підключіть USB і знову вийміть диски.
 STR_DIAG_TITLE = Діагностика
 STR_DIAG_KEY_TEST = Тест кнопок
 STR_DIAG_FRAME_TIME = Час кадру

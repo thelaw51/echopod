@@ -209,6 +209,7 @@ STR_UPDATE_FAILED = Aktualizacja nie powiodła się
 STR_UPDATE_RETRY = Skopiuj plik ponownie i spróbuj jeszcze raz przed wyłączeniem.
 STR_UPDATE_NOT_INSTALLED = Nie zainstalowano aktualizacji
 STR_UPDATE_INVALID_IMAGE = {0} nie jest poprawnym obrazem dla tego odtwarzacza.
+STR_UPDATE_BATTERY_LOW = Bateria zbyt słaba. Podłącz USB i ponownie wysuń napędy.
 STR_DIAG_TITLE = Diagnostyka
 STR_DIAG_KEY_TEST = Test klawiszy
 STR_DIAG_FRAME_TIME = Czas klatki

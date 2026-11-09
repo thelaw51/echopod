@@ -246,6 +246,7 @@ STR_UPDATE_FAILED = Pembaruan gagal
 STR_UPDATE_RETRY = Salin file lagi dan coba ulang sebelum mematikan.
 STR_UPDATE_NOT_INSTALLED = Pembaruan tidak terpasang
 STR_UPDATE_INVALID_IMAGE = {0} bukan image yang valid untuk pemutar ini.
+STR_UPDATE_BATTERY_LOW = Baterai terlalu lemah. Colokkan USB, lalu keluarkan drive lagi.
 STR_DIAG_TITLE = Diagnostik
 STR_DIAG_KEY_TEST = Tes tombol
 STR_DIAG_FRAME_TIME = Waktu frame

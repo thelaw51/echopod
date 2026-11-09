@@ -212,6 +212,7 @@ STR_UPDATE_FAILED = Falló la actualización
 STR_UPDATE_RETRY = Copiar el archivo de nuevo y reintentar antes de apagar.
 STR_UPDATE_NOT_INSTALLED = Actualización no instalada
 STR_UPDATE_INVALID_IMAGE = {0} no es una imagen válida para este equipo.
+STR_UPDATE_BATTERY_LOW = Batería demasiado baja. Conecta el USB y vuelve a expulsar las unidades.
 STR_DIAG_TITLE = Diagnóstico
 STR_DIAG_KEY_TEST = Prueba de teclas
 STR_DIAG_FRAME_TIME = Tiempo de fotograma
