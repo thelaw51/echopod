@@ -243,7 +243,7 @@ static bool values_valid(const uint8_t *bytes)
 
 bool settings_decode(const uint8_t *bytes, uint32_t length, Settings *settings)
 {
-    if (length < SETTINGS_V8_FILE_SIZE || !header_valid(bytes, length) || !values_valid(bytes)) {
+    if (length < OLD_CHECKSUM_FIELD + 4 || !header_valid(bytes, length) || !values_valid(bytes)) {
         return false;
     }
     *settings = (Settings){
