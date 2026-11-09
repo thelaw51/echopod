@@ -41,6 +41,7 @@ If "Updating" flashes for under a second and FiiO's firmware comes back, the ins
 - Album covers come from art inside one of each album's first four tracks (Ogg and Opus pictures included), or from a `cover`, `folder`, `front` or `albumart` JPEG or PNG next to the tracks.
 - `.m3u` and `.m3u8` playlists anywhere on the card appear under Music → Playlists.
 - You can also make playlists on the player. Hold ▶ on a song, choose **Add to playlist**, then **New playlist** or one you made before. They're named Playlist 1, Playlist 2 and so on, appear at the top of Music → Playlists, and hold up to 200 songs each, 16 playlists in all. Hold ▶ on a song inside one for **Remove from playlist**, and hold ▶ on the playlist itself for **Delete playlist**. They live in `/.echo/playlists.bin` on the card and survive a rescan; a song you delete from the card drops out and comes back if you copy it back. They aren't `.m3u` files, so a computer can't read them yet.
+- To love a song, hold ▶ on it and choose **Love** (on a loved song the same item says **Unlove**). From Now Playing, open Up Next (≡, or hold ≡ with Menu button set to Next track) and hold ▶ on the song; holding ▶ again unloves it. With Menu button set to Shuffle & repeat, Up Next and this shortcut can't be reached from Now Playing. Loved songs are listed in Music → Favorites → **Loved tracks**, the row above your favorite albums, and play like any list. Up to 200 songs; they live in `/.echo/loved.bin` and survive a rescan the same way playlists made on the player do.
 - Libraries of many thousands of tracks work; `docs/known-issues.md` lists the sizes tested so far.
 - EchoPod keeps its own files in a hidden `/.echo` folder on the card, about 110 MB of them. Don't delete it unless you want the library rebuilt.
 - A card is needed: the library, your settings, favorites and resume points are all saved there. Without one, Home shows "No microSD card" and a changed setting isn't kept ("Insert a microSD card to save settings"). Put a card in and restart the player.
@@ -164,7 +165,7 @@ The computer picks each album's cover the way the player does: the picture insid
 | Button | In lists | On Now Playing |
 |---|---|---|
 | Volume up / down | Next / previous item; hold to scroll faster | Volume; hold Vol+ for the next track, Vol− for the previous one (in audiobooks and podcasts: 30 s forward, 15 s back) |
-| Play | Select; a song plays the list from that song. Hold on an album for Favorites, hold on a song for Play Next / Add to Up Next / Add to playlist | Play / pause; hold to seek |
+| Play | Select; a song plays the list from that song. Hold on an album for Favorites, hold on a song for Play Next / Add to Up Next / Add to playlist / Love | Play / pause; hold to seek |
 | Menu | Hold for Settings | Opens Up Next; hold for the Equalizer (or, with Settings → Buttons → Menu button → Next track: next track; hold for Up Next. With Menu button → Shuffle & repeat: change shuffle; hold to change repeat) |
 | Back | Back; hold to go home | Back; hold to go home |
 | Power | Screen off or on; hold 2 s to turn off | Same |

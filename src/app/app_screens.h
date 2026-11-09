@@ -10,6 +10,7 @@
 #include "hal/audio.h"
 #include "home_art.h"
 #include "library_store.h"
+#include "loved_tracks.h"
 #include "player.h"
 #include "screens/bluetooth_screen.h"
 #include "screens/cover_flow_screen.h"
@@ -99,6 +100,7 @@ typedef struct AppScreensContext {
     SettingsStore *settings;
     FavoritesStore *favorites;
     UserPlaylists *playlists;
+    LovedTracks *loved;
     PowerPolicy *power;
     Toast *toast;
     CoverCache *covers;

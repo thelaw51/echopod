@@ -3,10 +3,12 @@
 #include <stdint.h>
 
 #include "library/library.h"
+#include "loved_tracks.h"
 #include "player.h"
 #include "ui/list_view.h"
 #include "ui/screen.h"
 #include "ui/theme.h"
+#include "ui/toast.h"
 
 enum {
     UP_NEXT_ROWS = 11,
@@ -19,6 +21,8 @@ typedef struct UpNextConfig {
     const Library *library;
     const Theme *theme;
     Player *player;
+    LovedTracks *loved;
+    Toast *toast;
 } UpNextConfig;
 
 typedef struct UpNextScreen {
@@ -33,6 +37,7 @@ typedef struct UpNextScreen {
     char labels[UP_NEXT_ROWS][UP_NEXT_LABEL_CAPACITY];
     char details[UP_NEXT_ROWS][UP_NEXT_DETAIL_CAPACITY];
     uint32_t now_ms;
+    char message[UP_NEXT_LABEL_CAPACITY];
 } UpNextScreen;
 
 Screen *up_next_screen_init(UpNextScreen *up_next, UpNextConfig config);

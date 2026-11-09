@@ -5,6 +5,7 @@
 #include "favorites_store.h"
 #include "library/favorites.h"
 #include "library/library_browse.h"
+#include "loved_tracks.h"
 #include "player.h"
 #include "spoken_store.h"
 #include "ui/list_view.h"
@@ -52,6 +53,7 @@ typedef struct BrowseScreen {
     BrowseQuery query;
     uint32_t count;
     bool favorites_only;
+    bool loved_list;
     int extra;
     int user_rows;
     int list_slot;
@@ -71,6 +73,7 @@ typedef struct BrowsePoolConfig {
     Screen *now_playing;
     FavoritesStore *favorites;
     UserPlaylists *playlists;
+    LovedTracks *loved;
     Toast *toast;
     SpokenStore *spoken;
     const uint8_t *options;

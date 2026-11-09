@@ -182,8 +182,13 @@ static void load_row(BrowseScreen *browse, BrowseRows *rows, int row, int index)
         return;
     }
     if (index < browse->extra + browse->user_rows) {
-        playlist_name(browse->pool, user_row_slot(browse, index), rows->labels[row],
-                      BROWSE_LABEL_CAPACITY);
+        if (browse->favorites_only) {
+            StringBuilder label = string_builder_make(rows->labels[row], BROWSE_LABEL_CAPACITY);
+            string_builder_append(&label, i18n_text(STR_MENU_LOVED_TRACKS));
+        } else {
+            playlist_name(browse->pool, user_row_slot(browse, index), rows->labels[row],
+                          BROWSE_LABEL_CAPACITY);
+        }
         rows->opens[row] = true;
         return;
     }
@@ -367,6 +372,11 @@ static ScreenAction start_list(BrowseScreen *browse, BrowseQuery source, uint32_
 
 static BrowseQuery playback_query(BrowseScreen *browse, BrowseQuery query)
 {
+    LovedTracks *loved = browse->pool->config.loved;
+    if (browse->loved_list && loved != NULL) {
+        loved_tracks_pin(loved);
+        return loved_tracks_query(true);
+    }
     UserPlaylists *playlists = browse->pool->config.playlists;
     if (query.kind != BROWSE_TRACK_LIST || playlists == NULL) {
         return query;
@@ -487,12 +497,21 @@ static ScreenAction open_user_playlist(BrowseScreen *browse, int slot)
     return screen_action_push(next);
 }
 
+static ScreenAction open_loved_tracks(BrowseScreen *browse)
+{
+    Screen *next = browse_pool_open(browse->pool, browse->level + 1, loved_tracks_query(false));
+    return next != NULL ? screen_action_push(next) : screen_action_none();
+}
+
 static ScreenAction select_row(void *context, int index)
 {
     BrowseScreen *browse = context;
     BrowseItem item;
     if (index < browse->extra) {
         return play_all(browse, index == browse->extra - 1);
+    }
+    if (index < browse->extra + browse->user_rows && browse->favorites_only) {
+        return open_loved_tracks(browse);
     }
     if (index < browse->extra + browse->user_rows) {
         return open_user_playlist(browse, user_row_slot(browse, index));
@@ -532,7 +551,7 @@ static void refresh_favorites(BrowsePool *pool)
 static void collect_favorites(BrowseScreen *browse)
 {
     refresh_favorites(browse->pool);
-    browse->count = browse->pool->favorite_count;
+    browse->count = browse->pool->favorite_count + (uint32_t)browse->user_rows;
     list_view_select(&browse->list, browse->list.selected, browse->now_ms);
 }
 
@@ -686,6 +705,15 @@ static ScreenAction remove_from_playlist(void *context)
     return finish_action(pool, NULL);
 }
 
+static ScreenAction love_song(void *context)
+{
+    BrowsePool *pool = context;
+    SongActions *actions = &pool->song_actions;
+    LovedChange change = loved_tracks_toggle(pool->config.loved, actions->track);
+    return finish_action(pool,
+                         loved_tracks_message(change, actions->message, sizeof actions->message));
+}
+
 static ScreenAction delete_playlist(void *context)
 {
     BrowsePool *pool = context;
@@ -723,6 +751,13 @@ static ScreenAction open_song_actions(BrowseScreen *browse, int index, uint16_t 
                                              .select = remove_from_playlist,
                                              .context = pool};
     }
+    if (pool->config.loved != NULL) {
+        bool loved = loved_tracks_contains(pool->config.loved, track);
+        actions->items[count++] =
+            (MenuItem){.label = i18n_text(loved ? STR_MENU_UNLOVE : STR_MENU_LOVE),
+                       .select = love_song,
+                       .context = pool};
+    }
     return screen_action_push(show_actions(pool, count));
 }
 
@@ -746,6 +781,9 @@ static ScreenAction hold_row(void *context, int index)
     BrowseScreen *browse = context;
     BrowseItem item;
     if (index >= browse->extra && index < browse->extra + browse->user_rows) {
+        if (browse->favorites_only) {
+            return screen_action_none();
+        }
         return open_playlist_actions(browse, user_row_slot(browse, index));
     }
     if (!item_at(browse, index, &item)) {
@@ -874,13 +912,17 @@ Screen *browse_pool_open(BrowsePool *pool, int level, BrowseQuery query)
     forget_rows(browse);
     browse->query = query;
     browse->favorites_only = false;
+    browse->loved_list = loved_tracks_is_list(query);
     browse->shelf = SPOKEN_NONE;
     browse->shelf_root = false;
     browse->in_flow = false;
     browse->list_slot = USER_PLAYLISTS_NO_SLOT;
     count_rows(browse);
     browse_title(pool->config.library, query, browse->title, sizeof browse->title);
-    if (query.kind == BROWSE_TRACK_LIST && pool->config.playlists != NULL) {
+    if (browse->loved_list) {
+        StringBuilder title = string_builder_make(browse->title, sizeof browse->title);
+        string_builder_append(&title, i18n_text(STR_MENU_LOVED_TRACKS));
+    } else if (query.kind == BROWSE_TRACK_LIST && pool->config.playlists != NULL) {
         browse->list_slot = (int)(query.subject & ~USER_PLAYLISTS_PINNED);
         playlist_name(pool, browse->list_slot, browse->title, sizeof browse->title);
     }
@@ -916,8 +958,12 @@ Screen *browse_pool_open_favorites(BrowsePool *pool, int level)
     StringBuilder title = string_builder_make(browse->title, sizeof browse->title);
     string_builder_append(&title, i18n_text(STR_MENU_FAVORITES));
     browse->favorites_only = true;
+    browse->user_rows = pool->config.loved != NULL ? 1 : 0;
     browse->model.section = NULL;
     collect_favorites(browse);
+    if (pool->favorite_count > 0) {
+        list_view_select(&browse->list, browse->user_rows, 0);
+    }
     return screen;
 }
 
