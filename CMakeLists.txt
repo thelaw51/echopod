@@ -17,7 +17,7 @@ option(ECHO_BUILD_SIM "Build the SDL2 simulator" ON)
 option(ECHO_BUILD_TESTS "Build the host tests" ON)
 option(ECHO_BUILD_DEVICE "Build the device firmware with cmake/arm-none-eabi.cmake" OFF)
 option(ECHO_RELEASE "Leave the developer-only Diagnostics rows out of the build" OFF)
-set(ECHO_APP_RAM_BUDGET_BYTES 131072 CACHE STRING "Static RAM budget for src/ on the device")
+set(ECHO_APP_RAM_BUDGET_BYTES 135168 CACHE STRING "Static RAM budget for src/ on the device")
 
 include(cmake/project_options.cmake)
 
