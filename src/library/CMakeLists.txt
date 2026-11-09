@@ -8,6 +8,7 @@ add_library(echo_library STATIC
     music_folders.c
     sort_initial.c
     spoken_path.c
+    user_playlist.c
 )
 target_include_directories(echo_library PUBLIC include)
 if(CMAKE_CROSSCOMPILING)

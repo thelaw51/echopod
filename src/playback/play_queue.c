@@ -60,7 +60,8 @@ static uint16_t find_anchor(const PlayQueue *queue)
 
 static bool lists_each_track_once(const PlayQueue *queue)
 {
-    return queue->plan.source.kind != BROWSE_PLAYLIST_TRACKS;
+    return queue->plan.source.kind != BROWSE_PLAYLIST_TRACKS &&
+           queue->plan.source.kind != BROWSE_TRACK_LIST;
 }
 
 static bool anchor_at_hint(const PlayQueue *queue, uint16_t *base)

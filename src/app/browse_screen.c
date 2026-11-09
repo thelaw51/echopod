@@ -291,6 +291,7 @@ static bool is_lettered(BrowseKind kind)
     case BROWSE_FOLDER:
     case BROWSE_PLAYLIST_TRACKS:
     case BROWSE_GROUP_TRACKS:
+    case BROWSE_TRACK_LIST:
         break;
     }
     return false;

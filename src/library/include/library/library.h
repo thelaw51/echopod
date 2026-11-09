@@ -41,9 +41,16 @@ typedef struct LibrarySectionInfo {
     uint16_t music;
 } LibrarySectionInfo;
 
+typedef struct LibraryTrackLists {
+    uint32_t (*count)(void *context, uint16_t list);
+    bool (*track)(void *context, uint16_t list, uint32_t position, uint16_t *track);
+    void *context;
+} LibraryTrackLists;
+
 typedef struct Library {
     ByteSource source;
     LibrarySectionInfo sections[LIBRARY_SECTION_COUNT];
+    const LibraryTrackLists *track_lists;
 } Library;
 
 typedef struct LibraryTrack {
