@@ -17,7 +17,7 @@ enum {
     BUILDER_ALBUM = 3,
     BUILDER_GENRE = 4,
     BUILDER_FILE = 5,
-    BUILDER_ROW_SIZE = 48,
+    BUILDER_ROW_SIZE = 56,
     BUILDER_FOLDER_SIZE = 8,
     BUILDER_MAX_DEPTH = 64,
     BUILDER_TEXT_CAPACITY = 1024,
@@ -85,6 +85,8 @@ typedef struct TrackRow {
     uint8_t spoken;
     uint8_t guessed;
     uint32_t duration_ms;
+    uint32_t start_ms;
+    uint8_t cue;
 } TrackRow;
 
 typedef struct FolderRow {

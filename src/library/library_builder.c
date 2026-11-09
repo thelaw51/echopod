@@ -308,7 +308,9 @@ BuilderResult library_builder_add_track(LibraryBuilder *builder, const BuilderTr
                     .number = track->number,
                     .spoken = spoken_kind_of(track->path) != SPOKEN_NONE,
                     .guessed = track->album_artist_guessed ? 1 : 0,
-                    .duration_ms = track->duration_ms};
+                    .duration_ms = track->duration_ms,
+                    .start_ms = track->cue ? track->start_ms : 0,
+                    .cue = track->cue ? 1 : 0};
     const char *texts[BUILDER_FIELDS - 1] = {track->title, track->artist, track->album_artist,
                                              track->album, track->genre};
     bool stored = place_path(state, track->path, &row);

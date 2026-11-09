@@ -9,7 +9,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
 
 MAGIC = b"EMDB"
-VERSION = 3
+VERSION = 4
 HEADER_SIZE = 128
 SECTION_ALIGNMENT = 4
 NONE = 0xFFFF
@@ -34,7 +34,8 @@ FNV_PRIME = 16777619
 
 HEADER_PREFIX = struct.Struct("<4sHH")
 SECTION_ENTRY = struct.Struct("<IIHH")
-TRACK_RECORD = struct.Struct("<IIHHHHIBBH")
+TRACK_RECORD = struct.Struct("<IIHHHHIBBHI")
+TRACK_CUE = 0x0001
 ALBUM_RECORD = struct.Struct("<IHHHHHH")
 GROUP_RECORD = struct.Struct("<IIHH")
 FOLDER_RECORD = struct.Struct("<IHHIHH")
@@ -65,6 +66,8 @@ class TrackInfo:
     number: int
     duration_ms: int
     album_artist_guessed: bool = False
+    start_ms: int = 0
+    cue: bool = False
 
 
 @dataclass
@@ -567,7 +570,8 @@ def encode_tracks(model, strings):
         data += TRACK_RECORD.pack(strings.add(track.title), strings.add(track.path),
                                   model.track_albums[position], model.track_artists[position],
                                   model.track_genres[position], model.track_folders[position],
-                                  track.duration_ms, track.disc, track.number, 0)
+                                  track.duration_ms, track.disc, track.number,
+                                  TRACK_CUE if track.cue else 0, track.start_ms if track.cue else 0)
     return data
 
 

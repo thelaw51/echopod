@@ -205,7 +205,7 @@ static char *next_field(char **cursor)
 
 static BuilderTrack parse_track(char **cursor)
 {
-    BuilderTrack parsed;
+    BuilderTrack parsed = {0};
     parsed.path = next_field(cursor);
     parsed.title = next_field(cursor);
     parsed.artist = next_field(cursor);
@@ -305,6 +305,8 @@ static ReferenceTrack reference_track(const BuilderTrack *track)
                             .disc = track->disc,
                             .number = track->number,
                             .duration_ms = track->duration_ms,
+                            .start_ms = track->start_ms,
+                            .cue = track->cue,
                             .album_artist_guessed = track->album_artist_guessed};
 }
 

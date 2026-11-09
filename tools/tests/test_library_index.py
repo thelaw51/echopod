@@ -355,11 +355,11 @@ class EncodeLibraryTest(unittest.TestCase):
 
     def test_the_header_identifies_the_format(self):
         magic, version, sections = struct.unpack_from("<4sHH", self.data, 0)
-        self.assertEqual((b"EMDB", 3, 10), (magic, version, sections))
+        self.assertEqual((b"EMDB", 4, 10), (magic, version, sections))
         self.assertEqual(HEADER_SIZE, self.section(0)[0])
 
     def test_sections_declare_their_counts_and_record_sizes(self):
-        expected = [(8, 24), (5, 16), (4, 12), (4, 12), (4, 12)]
+        expected = [(8, 28), (5, 16), (4, 12), (4, 12), (4, 12)]
         for number, (count, size) in enumerate(expected):
             _, actual_count, actual_size, _ = self.section(number)
             self.assertEqual((count, size), (actual_count, actual_size))
