@@ -25,7 +25,7 @@ enum {
     SECONDS_PER_DAY = 86400
 };
 
-_Static_assert(VALUE_CAPACITY >= WALL_CLOCK_ZONE_CAPACITY, "a row's value holds a zone");
+_Static_assert((int)VALUE_CAPACITY >= (int)WALL_CLOCK_ZONE_CAPACITY, "a row's value holds a zone");
 
 static const StringId FIELD_LABELS[DATE_TIME_FIELD_COUNT] = {
     STR_SETTINGS_YEAR, STR_SETTINGS_MONTH,  STR_SETTINGS_DAY,
