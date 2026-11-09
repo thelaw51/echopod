@@ -77,6 +77,37 @@ static void an_install_on_battery_without_a_reading_is_unknown(void)
     CHECK(low_battery_install_power(unknown) == INSTALL_POWER_UNKNOWN);
 }
 
+static void a_start_on_battery_needs_the_start_level(void)
+{
+    CHECK(low_battery_start_power(on_battery(LOW_BATTERY_START_MV - 1)) == START_POWER_REFUSE);
+    CHECK(low_battery_start_power(on_battery(LOW_BATTERY_EMPTY_MV)) == START_POWER_REFUSE);
+    CHECK(low_battery_start_power(on_battery(LOW_BATTERY_START_MV)) == START_POWER_OK);
+    CHECK(low_battery_start_power(on_battery(4200)) == START_POWER_OK);
+}
+
+static void the_start_level_sits_above_the_running_cut_off(void)
+{
+    CHECK(LOW_BATTERY_START_MV > LOW_BATTERY_EMPTY_MV);
+    LowBattery low;
+    low_battery_init(&low);
+    low_battery_update(&low, on_battery(LOW_BATTERY_START_MV), 0);
+    CHECK(!low_battery_update(&low, on_battery(LOW_BATTERY_START_MV), 10000));
+}
+
+static void a_low_start_on_usb_power_goes_to_the_charge_screen(void)
+{
+    LowBatteryReading plugged = {.known = true, .millivolts = 3300, .usb_power = true};
+    CHECK(low_battery_start_power(plugged) == START_POWER_CHARGE);
+    plugged.millivolts = LOW_BATTERY_START_MV;
+    CHECK(low_battery_start_power(plugged) == START_POWER_OK);
+}
+
+static void a_start_without_a_reading_goes_ahead(void)
+{
+    LowBatteryReading unknown = {.known = false, .millivolts = 0, .usb_power = false};
+    CHECK(low_battery_start_power(unknown) == START_POWER_OK);
+}
+
 int main(void)
 {
     static const TestCase cases[] = {
@@ -88,6 +119,10 @@ int main(void)
         TEST_CASE(an_install_on_usb_power_goes_ahead_at_any_reading),
         TEST_CASE(an_install_on_battery_needs_the_install_level),
         TEST_CASE(an_install_on_battery_without_a_reading_is_unknown),
+        TEST_CASE(a_start_on_battery_needs_the_start_level),
+        TEST_CASE(the_start_level_sits_above_the_running_cut_off),
+        TEST_CASE(a_low_start_on_usb_power_goes_to_the_charge_screen),
+        TEST_CASE(a_start_without_a_reading_goes_ahead),
     };
     return test_run_all(cases, TEST_CASE_COUNT(cases));
 }
