@@ -18,7 +18,8 @@ typedef enum UpdateRefusal {
     UPDATE_REFUSED_CRC,
     UPDATE_REFUSED_MODEL,
     UPDATE_REFUSED_ROOM,
-    UPDATE_REFUSED_LAYOUT
+    UPDATE_REFUSED_LAYOUT,
+    UPDATE_REFUSED_BATTERY
 } UpdateRefusal;
 
 typedef enum UpdateCheck {

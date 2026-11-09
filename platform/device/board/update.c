@@ -6,11 +6,15 @@
 #include "app/update_record.h"
 #include "board.h"
 #include "core/i18n.h"
+#include "core/low_battery.h"
 #include "core/string_builder.h"
+#include "device/battery_gauge.h"
 #include "device/fat.h"
 #include "device/updater.h"
 #include "emmc.h"
+#include "hal/clock.h"
 #include "storage_reset.h"
+#include "usb.h"
 
 enum {
     MESSAGE_CAPACITY = 128,
@@ -20,7 +24,8 @@ enum {
     HIGHEST_NUMBER = 97,
     TENS_AT = 7,
     UNITS_AT = 8,
-    SECTORS_PER_MIB = 2048
+    SECTORS_PER_MIB = 2048,
+    BATTERY_WAIT_MS = 12000
 };
 
 static const char UPDATE_TEMPLATE[] = "/HIFIEC00.IMG";
@@ -110,6 +115,36 @@ static void remember(HalUpdateRecord record)
     (void)update_record_save(record);
 }
 
+static void start_battery_reading(void)
+{
+    if (!usb_vbus_present()) {
+        board_battery_restart();
+    }
+}
+
+static LowBatteryReading battery_reading(uint32_t since_ms)
+{
+    bool usb_power = usb_vbus_present();
+    BatteryGauge gauge = board_battery_gauge();
+    while (!usb_power && gauge.count <= BATTERY_RECENT_READINGS &&
+           hal_clock_milliseconds() - since_ms < BATTERY_WAIT_MS) {
+        board_display_service();
+        usb_power = usb_vbus_present();
+        gauge = board_battery_gauge();
+    }
+    bool fresh = gauge.count > BATTERY_RECENT_READINGS;
+    return (LowBatteryReading){.known = fresh,
+                               .millivolts = fresh ? battery_gauge_recent_millivolts(&gauge) : 0,
+                               .usb_power = usb_power};
+}
+
+static void refuse_for_battery(void)
+{
+    remember(outcome(HAL_UPDATE_REFUSED, (uint8_t)UPDATE_REFUSED_BATTERY));
+    app_show_notice(i18n_text(STR_UPDATE_NOT_INSTALLED), i18n_text(STR_UPDATE_BATTERY_LOW));
+    board_wait_for_key();
+}
+
 static void install(const UpdateFile *update, const UpdateStorage *storage, bool stock)
 {
     install_title = i18n_text(stock ? STR_UPDATE_INSTALLING_FIIO : STR_UPDATE_INSTALLING);
@@ -136,6 +171,8 @@ void update_after_usb(UsbShared *state)
     }
     _Static_assert(UPDATER_SCRATCH_WORDS * 4 <= 64 * 512, "the USB write buffer holds the scratch");
     updater_use_scratch(usb_session_buffer());
+    uint32_t battery_since = hal_clock_milliseconds();
+    start_battery_reading();
     UpdateFile update = {read_update, file.size, NULL};
     const char *name = update_path + 1;
     char text[MESSAGE_CAPACITY];
@@ -144,7 +181,12 @@ void update_after_usb(UsbShared *state)
     i18n_format(&builder, STR_UPDATE_CHECKING, arguments, 1);
     app_show_notice(i18n_text(STR_UPDATE_TITLE), text);
     UpdateCheck check = updater_check(&update, &storage);
-    if (check == UPDATE_VALID || check == UPDATE_STOCK) {
+    bool installable = check == UPDATE_VALID || check == UPDATE_STOCK;
+    bool powered = installable &&
+                   low_battery_install_power(battery_reading(battery_since)) == INSTALL_POWER_OK;
+    if (installable && !powered) {
+        refuse_for_battery();
+    } else if (installable) {
         install(&update, &storage, check == UPDATE_STOCK);
     } else if (check == UPDATE_ALREADY_INSTALLED) {
         remember(outcome(HAL_UPDATE_ALREADY_INSTALLED, 0));

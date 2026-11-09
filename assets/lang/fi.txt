@@ -212,6 +212,7 @@ STR_UPDATE_FAILED = Päivitys epäonnistui
 STR_UPDATE_RETRY = Kopioi tiedosto uudelleen ja yritä uudelleen ennen sammutusta.
 STR_UPDATE_NOT_INSTALLED = Päivitystä ei asennettu
 STR_UPDATE_INVALID_IMAGE = {0} ei kelpaa tälle soittimelle.
+STR_UPDATE_BATTERY_LOW = Akku on liian vähissä. Kytke USB ja poista asemat uudelleen.
 STR_DIAG_TITLE = Diagnostiikka
 STR_DIAG_KEY_TEST = Näppäintesti
 STR_DIAG_FRAME_TIME = Kehysaika

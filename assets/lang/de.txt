@@ -212,6 +212,7 @@ STR_UPDATE_FAILED = Update fehlgeschlagen
 STR_UPDATE_RETRY = Datei erneut kopieren, dann vor dem Ausschalten wiederholen.
 STR_UPDATE_NOT_INSTALLED = Update nicht installiert
 STR_UPDATE_INVALID_IMAGE = {0} ist kein gültiges Image für diesen Player.
+STR_UPDATE_BATTERY_LOW = Akku zu schwach. USB anschließen, dann die Laufwerke erneut auswerfen.
 STR_DIAG_TITLE = Diagnose
 STR_DIAG_KEY_TEST = Tastentest
 STR_DIAG_FRAME_TIME = Framezeit

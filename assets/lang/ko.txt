@@ -212,6 +212,7 @@ STR_UPDATE_FAILED = 업데이트 실패
 STR_UPDATE_RETRY = 끄기 전에 파일을 다시 복사해서 재시도하세요.
 STR_UPDATE_NOT_INSTALLED = 업데이트 설치 안 됨
 STR_UPDATE_INVALID_IMAGE = {0}은(는) 이 플레이어용 이미지가 아닙니다.
+STR_UPDATE_BATTERY_LOW = 배터리가 부족합니다. USB를 연결한 뒤 드라이브를 다시 꺼내세요.
 STR_DIAG_TITLE = 진단
 STR_DIAG_KEY_TEST = 키 테스트
 STR_DIAG_FRAME_TIME = 프레임 시간

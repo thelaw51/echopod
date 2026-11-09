@@ -55,6 +55,28 @@ static void unplugging_restarts_the_wait(void)
     CHECK(low_battery_update(&low, on_battery(3400), 4500));
 }
 
+static void an_install_on_usb_power_goes_ahead_at_any_reading(void)
+{
+    LowBatteryReading plugged = {.known = true, .millivolts = 3300, .usb_power = true};
+    LowBatteryReading plugged_unknown = {.known = false, .millivolts = 0, .usb_power = true};
+    CHECK(low_battery_install_power(plugged) == INSTALL_POWER_OK);
+    CHECK(low_battery_install_power(plugged_unknown) == INSTALL_POWER_OK);
+}
+
+static void an_install_on_battery_needs_the_install_level(void)
+{
+    CHECK(low_battery_install_power(on_battery(LOW_BATTERY_INSTALL_MV - 1)) == INSTALL_POWER_LOW);
+    CHECK(low_battery_install_power(on_battery(LOW_BATTERY_EMPTY_MV)) == INSTALL_POWER_LOW);
+    CHECK(low_battery_install_power(on_battery(LOW_BATTERY_INSTALL_MV)) == INSTALL_POWER_OK);
+    CHECK(low_battery_install_power(on_battery(4200)) == INSTALL_POWER_OK);
+}
+
+static void an_install_on_battery_without_a_reading_is_unknown(void)
+{
+    LowBatteryReading unknown = {.known = false, .millivolts = 4200, .usb_power = false};
+    CHECK(low_battery_install_power(unknown) == INSTALL_POWER_UNKNOWN);
+}
+
 int main(void)
 {
     static const TestCase cases[] = {
@@ -63,6 +85,9 @@ int main(void)
         TEST_CASE(usb_power_never_shuts_down),
         TEST_CASE(an_unknown_reading_never_shuts_down),
         TEST_CASE(unplugging_restarts_the_wait),
+        TEST_CASE(an_install_on_usb_power_goes_ahead_at_any_reading),
+        TEST_CASE(an_install_on_battery_needs_the_install_level),
+        TEST_CASE(an_install_on_battery_without_a_reading_is_unknown),
     };
     return test_run_all(cases, TEST_CASE_COUNT(cases));
 }

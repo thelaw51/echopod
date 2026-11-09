@@ -212,6 +212,7 @@ STR_UPDATE_FAILED = Échec de la mise à jour
 STR_UPDATE_RETRY = Recopier le fichier et réessayer avant d'éteindre.
 STR_UPDATE_NOT_INSTALLED = Mise à jour non installée
 STR_UPDATE_INVALID_IMAGE = {0} n'est pas une image valide pour ce lecteur.
+STR_UPDATE_BATTERY_LOW = Batterie trop faible. Branchez l'USB, puis éjectez de nouveau les lecteurs.
 STR_DIAG_TITLE = Diagnostic
 STR_DIAG_KEY_TEST = Test des touches
 STR_DIAG_FRAME_TIME = Durée d'image
