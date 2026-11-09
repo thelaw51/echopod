@@ -10,6 +10,10 @@
 
 - **An update or the way back to FiiO no longer starts on a low battery.** Installs run after you eject or unplug, so they could start on battery. On battery the player now waits a few seconds for a steady reading and refuses below about 30 % (3.71 V), with "Battery too low. Plug in USB, then eject the drives again." On USB power it installs as before. Diagnostics → Last update shows the refusal as code 8.
 
+### Fixed
+
+- **Settings from 0.9.1 or earlier carry over again.** Since 0.10.0, a player updated straight from 0.9.1 or earlier started from default settings: those versions wrote a 24-byte settings file and the newer firmware rejected anything under 32 bytes. Their brightness, volume, language, orientation and the rest now load, and are saved again in the current format.
+
 ## 0.11.1
 
 Smoother and steadier: 192 kHz FLAC plays cleanly again, and menus, Cover Flow and card reads do less work. Tested on one Echo Mini 8 GB.

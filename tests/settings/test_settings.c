@@ -427,6 +427,19 @@ static void check_same_values(const Settings *expected, const Settings *actual)
     CHECK_EQUAL(expected->balance, actual->balance);
 }
 
+static void a_24_byte_file_from_0_9_1_still_loads(void)
+{
+    Settings settings = custom_settings();
+    uint8_t bytes[SETTINGS_FILE_SIZE];
+    settings_encode(&settings, bytes);
+    bytes[VERSION_FIELD] = 7;
+    rewrite_checksum(bytes);
+    Settings decoded;
+    CHECK(settings_decode(bytes, CHECKSUM_FIELD + 4, &decoded));
+    check_same_values(&settings, &decoded);
+    CHECK(!settings_decode(bytes, CHECKSUM_FIELD + 3, &decoded));
+}
+
 static void the_new_options_default_to_their_first_choice(void)
 {
     Settings settings = settings_defaults();
@@ -618,6 +631,7 @@ int main(void)
         TEST_CASE(an_unknown_time_format_is_rejected),
         TEST_CASE(an_option_out_of_range_is_rejected),
         TEST_CASE(a_version_7_file_loads_with_the_options_off),
+        TEST_CASE(a_24_byte_file_from_0_9_1_still_loads),
         TEST_CASE(defaults_are_comfortable),
         TEST_CASE(timeout_options_end_with_never),
         TEST_CASE(sleep_options_start_with_off),
