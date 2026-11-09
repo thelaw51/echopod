@@ -52,6 +52,7 @@ enum {
     DISPLAY_ORIENTATION_ROW = 5,
     DISPLAY_STATUS_BAR_ROW = 8,
     DISPLAY_CLOCK_ROW = 9,
+    DISPLAY_TIME_FORMAT_ROW = 10,
     LIBRARY_FOLDERS_ROW = 0,
     LIBRARY_RESCAN_ROW = 1,
     LIBRARY_START_ROW = 2,
@@ -2555,7 +2556,7 @@ static void a_track_without_lyrics_shows_none(void)
     CHECK(app_now_playing_lyric() == NULL);
 }
 
-static void start_app_with_clock(bool clock_on)
+static void start_app_with_clock_at(bool clock_on, uint8_t hour)
 {
     static uint8_t clock_settings[SETTINGS_FILE_SIZE];
     Settings settings = settings_defaults();
@@ -2568,12 +2569,17 @@ static void start_app_with_clock(bool clock_on)
                                 .year = 2026,
                                 .month = 11,
                                 .day = 5,
-                                .hour = 12,
+                                .hour = hour,
                                 .minute = 34});
     now_ms = START_MS;
     fake_hal_set_milliseconds(now_ms);
     app_start();
     step();
+}
+
+static void start_app_with_clock(bool clock_on)
+{
+    start_app_with_clock_at(clock_on, 12);
 }
 
 static HalTime chip_on(uint16_t year, uint8_t month, uint8_t day)
@@ -2601,23 +2607,60 @@ static void a_clock_dated_before_the_firmware_shows_no_time(void)
     CHECK(!area_has_color(clock, DEFAULT_THEME.colors.header_text));
 }
 
-static void the_landscape_clock_and_battery_show_at_every_minute(void)
+static int clock_hidden_minutes(const WallClockStyle *style)
 {
-    char text[8] = "00:00";
+    char text[WALL_CLOCK_TIME_CAPACITY];
     StatusBarState state = {.battery_known = true, .battery_percent = 100, .clock = text};
     int hidden = 0;
     for (int minute = 0; minute < 24 * 60; minute++) {
-        int hour = minute / 60;
-        text[0] = (char)('0' + hour / 10);
-        text[1] = (char)('0' + hour % 10);
-        text[3] = (char)('0' + minute % 60 / 10);
-        text[4] = (char)('0' + minute % 10);
+        WallCivil civil = {2026, 11, 5, (uint8_t)(minute / 60), (uint8_t)(minute % 60), 0};
+        wall_clock_time_text(&civil, style, text, sizeof text);
         Rect clock = status_bar_clock_area(&DEFAULT_THEME, state);
         hidden += rect_is_empty(clock) ? 1 : 0;
         Rect percent = status_bar_percent_area(&DEFAULT_THEME, "100%", false);
         hidden += HAL_DISPLAY_WIDTH - DEFAULT_THEME.metrics.header_inset > percent.x ? 1 : 0;
     }
-    CHECK_EQUAL(0, hidden);
+    return hidden;
+}
+
+static void the_landscape_clock_and_battery_show_at_every_minute(void)
+{
+    WallClockStyle twenty_four = {.format = WALL_CLOCK_24_HOUR};
+    WallClockStyle twelve = {.format = WALL_CLOCK_12_HOUR};
+    CHECK_EQUAL(0, clock_hidden_minutes(&twenty_four));
+    CHECK_EQUAL(0, clock_hidden_minutes(&twelve));
+}
+
+static void the_twelve_hour_clock_drops_the_leading_hour_in_the_status_bar(void)
+{
+    Color text = DEFAULT_THEME.colors.header_text;
+    Rect five = status_bar_clock_area(&DEFAULT_THEME, (StatusBarState){.clock = "00:00"});
+    Rect four = status_bar_clock_area(&DEFAULT_THEME, (StatusBarState){.clock = "0:00"});
+    Rect tail = {four.x + four.width, five.y, five.x + five.width - four.x - four.width,
+                 five.height};
+    start_app_with_clock_at(true, 13);
+    CHECK(area_has_color(tail, text));
+    open_setting(SETTINGS_DISPLAY, DISPLAY_TIME_FORMAT_ROW);
+    CHECK(title_is("Time format"));
+    move_down(1);
+    tap(KEY_PLAY);
+    CHECK(title_is("Display"));
+    step();
+    CHECK(area_has_color(four, text));
+    CHECK(!area_has_color(tail, text));
+}
+
+static void the_time_format_is_saved_under_display(void)
+{
+    start_app_with_library();
+    open_setting(SETTINGS_DISPLAY, DISPLAY_TIME_FORMAT_ROW);
+    CHECK(title_is("Time format"));
+    move_down(1);
+    tap(KEY_PLAY);
+    CHECK(title_is("Display"));
+    Settings settings;
+    CHECK(saved_settings(&settings));
+    CHECK_EQUAL(TIME_FORMAT_12_HOUR, settings.options[OPTION_TIME_FORMAT]);
 }
 
 static uint32_t last_play_time(void)
@@ -2932,6 +2975,8 @@ int main(void)
         TEST_CASE(the_clock_is_under_display_and_date_time_under_system),
         TEST_CASE(a_clock_dated_before_the_firmware_shows_no_time),
         TEST_CASE(the_landscape_clock_and_battery_show_at_every_minute),
+        TEST_CASE(the_twelve_hour_clock_drops_the_leading_hour_in_the_status_bar),
+        TEST_CASE(the_time_format_is_saved_under_display),
         TEST_CASE(the_listen_history_has_no_time_while_the_clock_predates_the_firmware),
         TEST_CASE(a_new_firmware_asks_once_for_the_clock_after_the_start_up_screen),
         TEST_CASE(set_now_opens_the_date_and_time_at_the_build_date),

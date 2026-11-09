@@ -84,6 +84,7 @@ typedef enum SettingOption {
     OPTION_RETIRED_INTERNAL_STORAGE,
     OPTION_STATUS_BAR,
     OPTION_POWER_ON,
+    OPTION_TIME_FORMAT,
     SETTINGS_OPTION_COUNT
 } SettingOption;
 
@@ -142,6 +143,11 @@ enum {
 enum {
     POWER_ON_PRESS,
     POWER_ON_HOLD
+};
+
+enum {
+    TIME_FORMAT_24_HOUR,
+    TIME_FORMAT_12_HOUR
 };
 
 typedef enum RockerMode {

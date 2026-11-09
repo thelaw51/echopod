@@ -100,6 +100,17 @@ static void the_editor_starts_from_the_clock_when_it_is_known(void)
     CHECK(strcmp("2026-11-05 09:08", date_time_screen_summary(&date_time)) == 0);
 }
 
+static void the_summary_follows_the_twelve_hour_format(void)
+{
+    Screen *screen = open_screen(running_chip());
+    store.settings.options[OPTION_TIME_FORMAT] = TIME_FORMAT_12_HOUR;
+    CHECK(strcmp("2026-11-05 9:08 AM", date_time_screen_summary(&date_time)) == 0);
+    adjust(screen, FIELD_HOUR, 12);
+    CHECK_EQUAL(21, date_time.civil.hour);
+    adjust(screen, FIELD_HOUR, 3);
+    CHECK_EQUAL(0, date_time.civil.hour);
+}
+
 static void the_editor_starts_from_a_fixed_date_when_the_clock_is_unknown(void)
 {
     open_screen((HalTime){.present = false});
@@ -242,6 +253,7 @@ int main(void)
 {
     static const TestCase cases[] = {
         TEST_CASE(the_editor_starts_from_the_clock_when_it_is_known),
+        TEST_CASE(the_summary_follows_the_twelve_hour_format),
         TEST_CASE(the_editor_starts_from_a_fixed_date_when_the_clock_is_unknown),
         TEST_CASE(volume_keys_move_between_fields_and_wrap),
         TEST_CASE(play_adjusts_the_chosen_field_and_values_wrap),

@@ -16,7 +16,7 @@ enum {
     FIELD_MINUTE,
     FIELD_ZONE,
     HINT_HEIGHT = 16,
-    VALUE_CAPACITY = 12,
+    VALUE_CAPACITY = WALL_CLOCK_HOUR_CAPACITY,
     DEFAULT_YEAR = 2026,
     MONTHS_PER_YEAR = 12,
     LAST_HOUR = 23,
@@ -24,6 +24,8 @@ enum {
     LONGEST_MONTH = 31,
     SECONDS_PER_DAY = 86400
 };
+
+_Static_assert(VALUE_CAPACITY >= WALL_CLOCK_ZONE_CAPACITY, "a row's value holds a zone");
 
 static const StringId FIELD_LABELS[DATE_TIME_FIELD_COUNT] = {
     STR_SETTINGS_YEAR, STR_SETTINGS_MONTH,  STR_SETTINGS_DAY,
@@ -182,6 +184,11 @@ static void value_text(const DateTimeScreen *screen, int field, char *text, size
         wall_clock_zone_text(screen->zone, text, capacity);
         return;
     }
+    if (field == FIELD_HOUR) {
+        WallClockStyle style = clock_store_style(&screen->config.store->settings, true);
+        wall_clock_hour_text(screen->civil.hour, &style, text, capacity);
+        return;
+    }
     int value = field_value(screen, field);
     StringBuilder builder = string_builder_make(text, capacity);
     if (value < 10 && field != FIELD_YEAR) {
@@ -255,7 +262,7 @@ const char *date_time_screen_summary(const void *context)
     if (!clock_store_now(screen->config.clock, hal_clock_milliseconds(), &civil)) {
         return i18n_text(STR_SETTINGS_NOT_SET);
     }
-    WallClockStyle style = {.format = WALL_CLOCK_24_HOUR};
+    WallClockStyle style = clock_store_style(&screen->config.store->settings, true);
     wall_clock_date_time_text(&civil, &style, summary, sizeof summary);
     return summary;
 }
