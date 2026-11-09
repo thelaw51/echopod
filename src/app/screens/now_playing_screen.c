@@ -7,6 +7,7 @@
 #include "core/string_builder.h"
 #include "gfx/image.h"
 #include "hal/audio.h"
+#include "hal/clock.h"
 #include "hal/storage.h"
 #include "settings/settings.h"
 #include "ui/header.h"
@@ -68,6 +69,11 @@ static const StringId SHUFFLE_TEXT[SHUFFLE_MODE_COUNT - 1] = {STR_MENU_SHUFFLE_S
                                                               STR_MENU_SHUFFLE_ALBUMS};
 static const StringId REPEAT_TEXT[REPEAT_MODE_COUNT - 1] = {STR_MENU_REPEAT_ONE,
                                                             STR_MENU_REPEAT_ALL};
+static const StringId SHUFFLE_VALUE[SHUFFLE_MODE_COUNT] = {STR_OFF, STR_SETTINGS_SONGS,
+                                                           STR_MENU_ALBUMS};
+static const StringId REPEAT_VALUE[REPEAT_MODE_COUNT] = {STR_OFF, STR_SETTINGS_ONE,
+                                                         STR_SETTINGS_ALL};
+static const char MODE_VALUE_SEPARATOR[] = ": ";
 
 const char *now_playing_codec_name(HalAudioCodec codec)
 {
@@ -179,8 +185,19 @@ NowPlayingControls now_playing_controls_of(const uint8_t *options)
     if (options == NULL) {
         return (NowPlayingControls){0};
     }
-    return (NowPlayingControls){.rocker = options[OPTION_ROCKER],
-                                .menu_skips = options[OPTION_MENU_KEY] == MENU_KEY_NEXT};
+    return (NowPlayingControls){.rocker = options[OPTION_ROCKER], .menu = options[OPTION_MENU_KEY]};
+}
+
+static NowPlayingCommand menu_command(KeyGesture gesture, NowPlayingControls controls)
+{
+    switch (controls.menu) {
+    case MENU_KEY_NEXT:
+        return by_gesture(gesture, NOW_PLAYING_NEXT, NOW_PLAYING_UP_NEXT);
+    case MENU_KEY_MODES:
+        return by_gesture(gesture, NOW_PLAYING_CYCLE_SHUFFLE, NOW_PLAYING_CYCLE_REPEAT);
+    default:
+        return by_gesture(gesture, NOW_PLAYING_UP_NEXT, NOW_PLAYING_EQUALIZER);
+    }
 }
 
 static NowPlayingCommand rocker_command(KeyGesture gesture, NowPlayingControls controls, bool up)
@@ -220,9 +237,7 @@ NowPlayingCommand now_playing_command_with(KeyEvent event, bool scrubbing,
     case KEY_BACK:
         return by_gesture(event.gesture, NOW_PLAYING_LEAVE, NOW_PLAYING_HOME);
     case KEY_MENU:
-        return controls.menu_skips
-                   ? by_gesture(event.gesture, NOW_PLAYING_NEXT, NOW_PLAYING_UP_NEXT)
-                   : by_gesture(event.gesture, NOW_PLAYING_UP_NEXT, NOW_PLAYING_EQUALIZER);
+        return menu_command(event.gesture, controls);
     case KEY_POWER:
         return NOW_PLAYING_NONE;
     }
@@ -252,6 +267,10 @@ NowPlayingFeedback now_playing_feedback_for(NowPlayingCommand command, PlayerSta
         return NOW_PLAYING_FEEDBACK_PREVIOUS;
     case NOW_PLAYING_TOGGLE_PAUSE:
         return after == PLAYER_PAUSED ? NOW_PLAYING_FEEDBACK_PAUSE : NOW_PLAYING_FEEDBACK_PLAY;
+    case NOW_PLAYING_CYCLE_SHUFFLE:
+        return NOW_PLAYING_FEEDBACK_SHUFFLE;
+    case NOW_PLAYING_CYCLE_REPEAT:
+        return NOW_PLAYING_FEEDBACK_REPEAT;
     default:
         return NOW_PLAYING_FEEDBACK_NONE;
     }
@@ -262,9 +281,24 @@ bool now_playing_feedback_visible(NowPlayingFeedback feedback, uint32_t started_
     if (feedback == NOW_PLAYING_FEEDBACK_NONE) {
         return false;
     }
-    uint32_t duration = feedback == NOW_PLAYING_FEEDBACK_VOLUME ? NOW_PLAYING_VOLUME_FEEDBACK_MS
-                                                                : NOW_PLAYING_BADGE_MS;
+    uint32_t duration = NOW_PLAYING_BADGE_MS;
+    if (feedback == NOW_PLAYING_FEEDBACK_VOLUME) {
+        duration = NOW_PLAYING_VOLUME_FEEDBACK_MS;
+    } else if (feedback == NOW_PLAYING_FEEDBACK_SHUFFLE ||
+               feedback == NOW_PLAYING_FEEDBACK_REPEAT) {
+        duration = NOW_PLAYING_MODE_FEEDBACK_MS;
+    }
     return now_ms - started_ms < duration;
+}
+
+ShuffleMode now_playing_next_shuffle(ShuffleMode shuffle)
+{
+    return (ShuffleMode)((shuffle + 1) % SHUFFLE_MODE_COUNT);
+}
+
+RepeatMode now_playing_next_repeat(RepeatMode repeat)
+{
+    return (RepeatMode)((repeat + 1) % REPEAT_MODE_COUNT);
 }
 
 int now_playing_volume_width(uint8_t volume, int width)
@@ -342,6 +376,13 @@ static ScreenAction run_command(NowPlayingScreen *now_playing, NowPlayingCommand
     case NOW_PLAYING_SEEK_BACK:
         player_jump(player, command == NOW_PLAYING_SEEK_FORWARD ? NOW_PLAYING_SCRUB_STEP_MS
                                                                 : -NOW_PLAYING_SCRUB_STEP_MS);
+        break;
+    case NOW_PLAYING_CYCLE_SHUFFLE:
+        player_set_shuffle(player, now_playing_next_shuffle(player_status(player).shuffle),
+                           hal_clock_microseconds());
+        break;
+    case NOW_PLAYING_CYCLE_REPEAT:
+        player_set_repeat(player, now_playing_next_repeat(player_status(player).repeat));
         break;
     case NOW_PLAYING_LEAVE:
         return screen_action_pop();
@@ -747,8 +788,25 @@ static void draw_times(const NowPlayingScreen *now_playing, Canvas *canvas)
     draw_right_aligned(canvas, style, area, remaining);
 }
 
-static void modes_text(const PlayerStatus *status, char *buffer, size_t capacity)
+static void mode_change_text(StringId name, StringId value, char *buffer, size_t capacity)
 {
+    StringBuilder builder = string_builder_make(buffer, capacity);
+    string_builder_append(&builder, i18n_text(name));
+    string_builder_append(&builder, MODE_VALUE_SEPARATOR);
+    string_builder_append(&builder, i18n_text(value));
+}
+
+void now_playing_modes_text(const PlayerStatus *status, NowPlayingFeedback feedback, char *buffer,
+                            size_t capacity)
+{
+    if (feedback == NOW_PLAYING_FEEDBACK_SHUFFLE) {
+        mode_change_text(STR_SETTINGS_SHUFFLE, SHUFFLE_VALUE[status->shuffle], buffer, capacity);
+        return;
+    }
+    if (feedback == NOW_PLAYING_FEEDBACK_REPEAT) {
+        mode_change_text(STR_SETTINGS_REPEAT, REPEAT_VALUE[status->repeat], buffer, capacity);
+        return;
+    }
     StringBuilder builder = string_builder_make(buffer, capacity);
     if (status->shuffle != SHUFFLE_OFF) {
         string_builder_append(&builder, i18n_text(SHUFFLE_TEXT[status->shuffle - 1]));
@@ -810,7 +868,13 @@ static void draw_details(const NowPlayingScreen *now_playing, Canvas *canvas)
                            (Label){column_area(now_playing, layout.detail_top, SMALL_LINE_HEIGHT),
                                    detail}));
     char modes[STATUS_CAPACITY];
-    modes_text(&now_playing->status, modes, sizeof modes);
+    NowPlayingFeedback feedback = now_playing->feedback;
+    bool mode_changed =
+        (feedback == NOW_PLAYING_FEEDBACK_SHUFFLE || feedback == NOW_PLAYING_FEEDBACK_REPEAT) &&
+        showing(now_playing, feedback);
+    now_playing_modes_text(&now_playing->status,
+                           mode_changed ? feedback : NOW_PLAYING_FEEDBACK_NONE, modes,
+                           sizeof modes);
     if (now_playing->scrubbing) {
         StringBuilder seeking = string_builder_make(modes, sizeof modes);
         string_builder_append(&seeking, i18n_text(STR_MENU_SEEKING_HINT));
@@ -845,7 +909,8 @@ static void draw_badge(const NowPlayingScreen *now_playing, Canvas *canvas)
 {
     Image cover;
     NowPlayingFeedback feedback = now_playing->feedback;
-    if (feedback == NOW_PLAYING_FEEDBACK_VOLUME || !showing(now_playing, feedback) ||
+    if (feedback == NOW_PLAYING_FEEDBACK_VOLUME || feedback == NOW_PLAYING_FEEDBACK_SHUFFLE ||
+        feedback == NOW_PLAYING_FEEDBACK_REPEAT || !showing(now_playing, feedback) ||
         !current_cover(now_playing, &cover) ||
         (layout_of(now_playing).centered && lyrics_shown(now_playing))) {
         return;
