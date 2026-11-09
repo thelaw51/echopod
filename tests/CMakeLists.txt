@@ -182,6 +182,11 @@ echo_add_unit_test(NAME test_stores
     LIBRARIES echo_app echo_library_fixtures
     PRIVATE_INCLUDES ${PROJECT_SOURCE_DIR}/src/app
 )
+echo_add_unit_test(NAME test_loved_tracks
+    SOURCES app/test_loved_tracks.c app/fake_hal.c
+    LIBRARIES echo_app echo_library_fixtures
+    PRIVATE_INCLUDES ${PROJECT_SOURCE_DIR}/src/app
+)
 echo_add_unit_test(NAME test_update_record
     SOURCES app/test_update_record.c app/fake_hal.c
     LIBRARIES echo_app echo_library_fixtures
