@@ -1305,6 +1305,7 @@ static void a_fresh_card_gets_the_player_files_and_a_first_scan(void)
     CHECK_EQUAL(1024 * 1024, fake_hal_reserved_size("/.echo/history.bin"));
     CHECK_EQUAL(4096, fake_hal_reserved_size("/.echo/update.bin"));
     CHECK_EQUAL(USER_PLAYLIST_FILE_BYTES, fake_hal_reserved_size("/.echo/playlists.bin"));
+    CHECK_EQUAL(4096, fake_hal_reserved_size("/.echo/loved.bin"));
     step();
     CHECK_EQUAL(1, fake_hal_scratch_borrow_count());
     CHECK(toast_is("Library: 0 tracks"));
@@ -1313,7 +1314,7 @@ static void a_fresh_card_gets_the_player_files_and_a_first_scan(void)
 static void a_card_that_has_the_files_is_not_rescanned(void)
 {
     start_on_a_fresh_card(HAL_RESERVE_EXISTS);
-    CHECK_EQUAL(16, fake_hal_reserve_count());
+    CHECK_EQUAL(17, fake_hal_reserve_count());
     step();
     CHECK_EQUAL(0, fake_hal_scratch_borrow_count());
 }
@@ -1723,7 +1724,7 @@ static void holding_play_in_favorites_removes_the_album(void)
     hold(KEY_PLAY);
     CHECK(toast_is("Removed from Favorites"));
     tap(KEY_PLAY);
-    CHECK(title_is("Favorites"));
+    CHECK(title_is("Loved tracks"));
 }
 
 static void favorites_survive_a_restart(void)
@@ -1734,6 +1735,52 @@ static void favorites_survive_a_restart(void)
     open_music_entry(MUSIC_FAVORITES_INDEX);
     tap(KEY_PLAY);
     CHECK(title_is("Back In Black"));
+}
+
+static void love_the_first_album_track(void)
+{
+    open_music_entry(MUSIC_ALBUMS_INDEX);
+    tap(KEY_PLAY);
+    hold(KEY_PLAY);
+    move_down(3);
+    tap(KEY_PLAY);
+}
+
+static void loving_a_song_puts_it_in_loved_tracks(void)
+{
+    start_app_with_library();
+    love_the_first_album_track();
+    CHECK(toast_is("Added to Loved tracks"));
+    restart_app();
+    open_music_entry(MUSIC_FAVORITES_INDEX);
+    CHECK(title_is("Favorites"));
+    tap(KEY_PLAY);
+    CHECK(title_is("Loved tracks"));
+    tap(KEY_PLAY);
+    CHECK(title_is("Now Playing"));
+    CHECK(playing_path_is(HELLS_BELLS_PATH));
+}
+
+static void a_loved_song_offers_unlove(void)
+{
+    start_app_with_library();
+    love_the_first_album_track();
+    hold(KEY_PLAY);
+    move_down(3);
+    tap(KEY_PLAY);
+    CHECK(toast_is("Removed from Loved tracks"));
+}
+
+static void holding_play_in_up_next_loves_the_song(void)
+{
+    start_app_with_library();
+    play_first_album_track();
+    tap(KEY_MENU);
+    CHECK(title_is("Up Next"));
+    hold(KEY_PLAY);
+    CHECK(toast_is("Added to Loved tracks"));
+    hold(KEY_PLAY);
+    CHECK(toast_is("Removed from Loved tracks"));
 }
 
 static void a_toast_disappears_after_a_while(void)
@@ -2550,6 +2597,36 @@ static void lyrics_in_capitals_are_found_and_the_setting_hides_them(void)
     CHECK(app_now_playing_lyric() == NULL);
 }
 
+static const uint8_t HELLS_BELLS_FLAC[] = "fLaC\x84\x00\x00\x33"
+                                          "\x06\x00\x00\x00vendor\x01\x00\x00\x00"
+                                          "\x21\x00\x00\x00LYRICS=[00:00.50]Embedded thunder";
+
+static void lyrics_in_the_track_tags_show_when_no_lrc_is_beside_it(void)
+{
+    start_app_with_library();
+    fake_hal_add_file("/AC DC/Back In Black/1-01 - Hells Bells.flac", HELLS_BELLS_FLAC,
+                      sizeof HELLS_BELLS_FLAC - 1);
+    play_first_album_track();
+    CHECK(title_is("Now Playing"));
+    fake_hal_audio_set_position(1000);
+    wait_ms(20);
+    CHECK(app_now_playing_lyric() != NULL);
+    CHECK_EQUAL(0, strcmp("Embedded thunder", app_now_playing_lyric()));
+}
+
+static void an_lrc_file_wins_over_lyrics_in_the_tags(void)
+{
+    start_app_with_library();
+    fake_hal_add_file("/AC DC/Back In Black/1-01 - Hells Bells.flac", HELLS_BELLS_FLAC,
+                      sizeof HELLS_BELLS_FLAC - 1);
+    fake_hal_add_file("/AC DC/Back In Black/1-01 - Hells Bells.lrc", HELLS_BELLS_LYRICS,
+                      sizeof HELLS_BELLS_LYRICS - 1);
+    play_first_album_track();
+    fake_hal_audio_set_position(1000);
+    wait_ms(20);
+    CHECK_EQUAL(0, strcmp("I'm a rolling thunder", app_now_playing_lyric()));
+}
+
 static void a_track_without_lyrics_shows_none(void)
 {
     start_app_with_library();
@@ -2949,6 +3026,9 @@ int main(void)
         TEST_CASE(play_next_with_nothing_playing_starts_the_song),
         TEST_CASE(holding_play_in_favorites_removes_the_album),
         TEST_CASE(favorites_survive_a_restart),
+        TEST_CASE(loving_a_song_puts_it_in_loved_tracks),
+        TEST_CASE(a_loved_song_offers_unlove),
+        TEST_CASE(holding_play_in_up_next_loves_the_song),
         TEST_CASE(a_toast_disappears_after_a_while),
         TEST_CASE(playlists_open_from_the_music_menu),
         TEST_CASE(the_start_screen_setting_opens_albums),
@@ -2990,6 +3070,8 @@ int main(void)
         TEST_CASE(a_large_status_bar_grows_the_portrait_status_band),
         TEST_CASE(power_on_hold_is_asked_for_at_the_next_start),
         TEST_CASE(synced_lyrics_beside_a_track_follow_its_position),
+        TEST_CASE(lyrics_in_the_track_tags_show_when_no_lrc_is_beside_it),
+        TEST_CASE(an_lrc_file_wins_over_lyrics_in_the_tags),
         TEST_CASE(lyrics_in_capitals_are_found_and_the_setting_hides_them),
         TEST_CASE(a_track_without_lyrics_shows_none),
         TEST_CASE(the_header_shows_the_time_only_while_the_clock_setting_is_on),

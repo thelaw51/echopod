@@ -190,11 +190,28 @@ static ScreenAction select_row(void *context, int index)
     return screen_action_pop();
 }
 
+static ScreenAction toggle_love(void *context, int index)
+{
+    UpNextScreen *up_next = context;
+    QueueWalk walk = start_walk(up_next->config.player);
+    uint16_t track = 0;
+    if (up_next->config.loved == NULL || !track_at(up_next, index, &walk, &track)) {
+        return screen_action_none();
+    }
+    LovedChange change = loved_tracks_toggle(up_next->config.loved, track);
+    if (up_next->config.toast != NULL) {
+        const char *message =
+            loved_tracks_message(change, up_next->message, sizeof up_next->message);
+        toast_show(up_next->config.toast, message, up_next->now_ms);
+    }
+    return screen_action_none();
+}
+
 static ScreenAction handle_key(void *context, KeyEvent event, uint32_t now_ms)
 {
     UpNextScreen *up_next = context;
     up_next->now_ms = now_ms;
-    ListSelection selection = {.select = select_row, .hold = NULL, .context = up_next};
+    ListSelection selection = {.select = select_row, .hold = toggle_love, .context = up_next};
     ScreenAction action = list_navigation_handle(&up_next->list, event, now_ms, selection);
     refresh_rows(up_next);
     return action;
