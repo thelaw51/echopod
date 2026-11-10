@@ -98,7 +98,6 @@ typedef struct SongActions {
     int list_slot;
     uint32_t now_ms;
     char title[BROWSE_LABEL_CAPACITY];
-    char message[BROWSE_LABEL_CAPACITY];
 } SongActions;
 
 struct BrowsePool {

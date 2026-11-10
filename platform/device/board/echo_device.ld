@@ -5,9 +5,9 @@ MEMORY
     DATA_RAM (rw) : ORIGIN = 0x03004000, LENGTH = 0x48000
     CODE_RAM (rx) : ORIGIN = 0x03050000, LENGTH = 0x2666C
     HIGH_RAM (rw) : ORIGIN = 0x0307A000, LENGTH = 0x15000
-    LANGUAGE_RAM (rw) : ORIGIN = 0x0308F000, LENGTH = 0x3800
-    GLYPH_RAM (rw) : ORIGIN = 0x03092800, LENGTH = 0x8000
-    RESIDENT_RAM (rw) : ORIGIN = 0x0309A800, LENGTH = 0x4800
+    LANGUAGE_RAM (rw) : ORIGIN = 0x0308F000, LENGTH = 0x2200
+    GLYPH_RAM (rw) : ORIGIN = 0x03091200, LENGTH = 0x8000
+    RESIDENT_RAM (rwx) : ORIGIN = 0x03099200, LENGTH = 0x5E00
 }
 
 SECTIONS
@@ -15,8 +15,8 @@ SECTIONS
     .code :
     {
         KEEP(*(.code_vectors))
-        *(.text .text.*)
-        *(.rodata .rodata.*)
+        EXCLUDE_FILE(*libecho_playback.a:embedded_lyrics.c.obj *libecho_playback.a:lyrics.c.obj *libecho_app.a:scrobbler_log.c.obj) *(.text .text.*)
+        EXCLUDE_FILE(*libecho_playback.a:embedded_lyrics.c.obj *libecho_playback.a:lyrics.c.obj *libecho_app.a:scrobbler_log.c.obj) *(.rodata .rodata.*)
         . = ALIGN(4);
         device_code_end = .;
     } > CODE_RAM
@@ -66,6 +66,9 @@ SECTIONS
         device_resident_start = .;
         LONG(0) LONG(0) LONG(0) LONG(0)
         *(.resident .resident.*)
+        *libecho_playback.a:embedded_lyrics.c.obj(.text .text.* .rodata .rodata.*)
+        *libecho_playback.a:lyrics.c.obj(.text .text.* .rodata .rodata.*)
+        *libecho_app.a:scrobbler_log.c.obj(.text .text.* .rodata .rodata.*)
         . = ALIGN(4);
         device_resident_end = .;
     } > RESIDENT_RAM
@@ -84,4 +87,4 @@ ASSERT(ADDR(.code) == 0x03050000, "the code vector table must be at 0x03050000")
 ASSERT(ADDR(.data) == 0x03004000, "the entry vector must be at 0x03004000")
 ASSERT(SIZEOF(.data) == 8, "only the entry vector may be in .data: make initialised globals const")
 ASSERT(device_noinit_end <= 0x0304C000, ".data, .bss and .noinit must end below 0x0304C000")
-ASSERT(ADDR(.resident) == 0x0309A800, "the resident tables must start at 0x0309A800")
+ASSERT(ADDR(.resident) == 0x03099200, "the resident tables must start at 0x03099200")

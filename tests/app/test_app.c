@@ -63,9 +63,8 @@ enum {
     LIBRARY_LYRICS_ROW = 7,
     BUTTONS_SWAP_ROW = 1,
     BUTTONS_POWER_ON_ROW = 3,
-    SYSTEM_LANGUAGE_ROW = 0,
-    SYSTEM_DATE_TIME_ROW = 1,
-    SYSTEM_USB_PROMPT_ROW = 4,
+    SYSTEM_DATE_TIME_ROW = 0,
+    SYSTEM_USB_PROMPT_ROW = 3,
     DAC_VOLUME_WINDOW_MS = 3000,
     MUSIC_COVER_FLOW_INDEX = 0,
     MUSIC_PLAYLISTS_INDEX = 7,
@@ -845,18 +844,6 @@ static void the_screen_starts_in_the_saved_orientation(void)
 }
 
 static bool toast_is(const char *expected);
-
-static void the_chosen_language_is_loaded_when_the_app_starts_again(void)
-{
-    start_app_with_library();
-    open_setting(SETTINGS_SYSTEM, SYSTEM_LANGUAGE_ROW);
-    CHECK(title_is("Language"));
-    move_down((int)LANGUAGE_GERMAN);
-    tap(KEY_PLAY);
-    CHECK(toast_is("Restart to apply"));
-    restart_app();
-    CHECK_EQUAL(LANGUAGE_GERMAN, fake_hal_language_requested());
-}
 
 static void english_is_requested_before_the_saved_language_is_known(void)
 {
@@ -3021,7 +3008,6 @@ int main(void)
         TEST_CASE(choosing_portrait_turns_the_screen),
         TEST_CASE(the_flipped_portrait_turns_the_panel_the_other_way),
         TEST_CASE(the_screen_starts_in_the_saved_orientation),
-        TEST_CASE(the_chosen_language_is_loaded_when_the_app_starts_again),
         TEST_CASE(english_is_requested_before_the_saved_language_is_known),
         TEST_CASE(choosing_landscape_again_turns_the_screen_back),
         TEST_CASE(a_new_screen_slides_in_from_the_right),
