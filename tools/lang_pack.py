@@ -21,7 +21,7 @@ import glyph_pack
 MAGIC = b"ELNG"
 VERSION = 1
 HEADER = struct.Struct("<4sHHI")
-PACK_LIMIT = 0x3000
+PACK_LIMIT = 0x3800
 GLYPH_CONFIG = Path(__file__).resolve().parents[1] / "assets" / "fonts" / "glyph_pack.json"
 ASCII_PRINTABLE = set(range(0x20, 0x7F))
 ENGLISH = "en"
