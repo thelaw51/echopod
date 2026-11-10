@@ -246,6 +246,8 @@ The player remembers the equalizer you used last, including your Custom bands an
 
 The player charges whenever it's plugged in, on or off. Turning it off while it's plugged in (or plugging a charger into a switched-off player) shows the charge screen: the battery level, or "Charged" when it's full. The screen goes dark after 5 seconds; press any button to see it again. Hold Power for 2 seconds to turn the player on, or unplug it to switch it off completely. Plugging into a computer still opens USB mode.
 
+When the battery is almost empty (below about 7 %), the player won't start on battery: it shows "Battery low. Plug in to charge" and switches off again. Turned on with a charger plugged in, it opens the charge screen instead. While it's running, it saves and switches off when the battery stays below the empty level for 2 seconds.
+
 ## Bluetooth headphones
 
 Settings → Bluetooth shows whether Bluetooth is on and which headphones are connected. Open it to turn Bluetooth on or off, connect, switch or pair headphones. The screen lists your headphones (the player remembers up to six, most recent first) with their state, a **Pair new device** row, and a hint for the selected row at the bottom.

@@ -88,6 +88,7 @@ bool fake_hal_display_on(void);
 int fake_hal_presents_at_power_on(void);
 uint8_t fake_hal_display_brightness(void);
 void fake_hal_set_battery(HalBattery battery);
+void fake_hal_set_boot_battery(HalBattery battery);
 void fake_hal_set_time(HalTime time);
 int fake_hal_time_read_count(void);
 int fake_hal_time_write_count(void);

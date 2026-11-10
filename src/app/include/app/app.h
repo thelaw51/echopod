@@ -36,4 +36,5 @@ void app_request_rescan(void);
 void app_request_rescan_if_music_changed(void);
 void app_show_splash(void);
 bool app_charging(void);
+bool app_refusing_start(void);
 bool app_idle(void);

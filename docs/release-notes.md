@@ -16,6 +16,7 @@
 
 ### Fixed
 
+- **The player no longer starts on an almost empty battery.** Turned on below about 7 % (3.55 V) without a charger, it shows "Battery low. Plug in to charge" for 2 seconds and switches off before it touches the card. Before, it started at 3.40 V and then shut itself down at 3.45 V a moment later, writing to the card on the way. The start level sits 100 mV above the running cut-off, so a battery that has just run flat and recovered a little doesn't start, stop and start again. With a charger plugged in, it opens the charge screen instead; hold Power for 2 seconds to use it while it charges.
 - **Settings from 0.9.1 or earlier carry over again.** Since 0.10.0, a player updated straight from 0.9.1 or earlier started from default settings: those versions wrote a 24-byte settings file and the newer firmware rejected anything under 32 bytes. Their brightness, volume, language, orientation and the rest now load, and are saved again in the current format.
 - **"No library" points at the rescan.** With a card but no library, the Music lists told you to run the PC indexer, a tool the player hasn't needed since it learned to build its own library. They now say Settings > Library > Rescan library, in every language.
 

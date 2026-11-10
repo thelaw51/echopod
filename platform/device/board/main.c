@@ -18,7 +18,6 @@ enum {
     START_CLOCK_MHZ = 96,
     HOST_WAIT_MS = 3000,
     ASK_TIMEOUT_MS = 5000,
-    EMPTY_NOTICE_MS = 2000,
     USB_CHOICE_STORAGE = 0,
     USB_CHOICE_DAC = 1,
     USB_CHOICE_CHARGE_ONLY = 2,
@@ -238,16 +237,6 @@ static void check_usb(void)
     }
 }
 
-static void switch_off_when_empty(uint32_t boot_millivolts)
-{
-    if (!battery_boot_cutoff(boot_millivolts, usb_vbus_present())) {
-        return;
-    }
-    app_show_notice("Battery low", "Charge the player to turn it on");
-    board_delay_ms(EMPTY_NOTICE_MS);
-    hal_power_off();
-}
-
 static void sleep_while_idle(void)
 {
     sleep_meter_advance(&sleep_meter, hal_clock_microseconds());
@@ -275,11 +264,10 @@ void board_main(void)
     board_stall_pause(true);
     hal_system_set_clock_mhz(START_CLOCK_MHZ);
     board_watchdog_start();
-    uint32_t boot_millivolts = battery_millivolts(board_battery_boot_reading());
+    board_power_note_boot_battery(battery_millivolts(board_battery_boot_reading()));
     board_input_start();
     board_display_start();
     board_glyphs_start();
-    switch_off_when_empty(boot_millivolts);
     app_start();
     app_show_splash();
     board_stall_pause(false);
@@ -289,7 +277,9 @@ void board_main(void)
             app_step();
         }
         board_display_service();
-        check_usb();
+        if (!app_refusing_start()) {
+            check_usb();
+        }
         sleep_while_idle();
     }
 }

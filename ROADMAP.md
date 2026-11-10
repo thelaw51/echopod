@@ -41,7 +41,7 @@ Version 0.11.1 plays 192 kHz FLAC cleanly again, keeps the landscape clock in pl
 | Item | Status |
 |---|---|
 | An assigned USB product ID from pid.codes, replacing the shared test ID | todo |
-| Refuse to start on an almost empty battery | todo |
+| Refuse to start on an almost empty battery | done in the simulator; not yet tried on a player |
 | Check the 4.4 mm balanced output on hardware | done (tester report) |
 | Check the post-0.1.0 fixes and audiobook bookmarks on hardware | in progress |
 | Faster cover decoding on the player (about 0.5 s per album) | todo |
