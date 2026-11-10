@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define HAL_CARD_EXPORT_FOLDER "/EchoPod Playlists/"
+
 typedef struct HalFile {
     int32_t handle;
     uint32_t size;

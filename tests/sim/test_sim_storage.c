@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "check.h"
@@ -144,6 +145,28 @@ static void the_player_never_writes_to_internal_storage(void)
     CHECK_EQUAL(HAL_RESERVE_FAILED, hal_file_reserve("/:internal/.echo/x.bin", 4096));
 }
 
+static void exports_are_the_only_card_writes(void)
+{
+    static const char PATH[] = HAL_CARD_EXPORT_FOLDER "Playlist 1.m3u8";
+    static const char TEXT[] = "#EXTM3U\n";
+    char host[1024];
+    char seen[sizeof TEXT];
+    HalFile file;
+    sim_storage_configure(ECHO_TEST_OUTPUT_DIR, ECHO_TEST_OUTPUT_DIR);
+    CHECK(sim_storage_host_path(PATH, host, sizeof host));
+    (void)remove(host);
+    CHECK_EQUAL(HAL_RESERVE_CREATED, hal_file_reserve(PATH, sizeof TEXT - 1));
+    CHECK(hal_file_write_at(PATH, 0, TEXT, sizeof TEXT - 1));
+    CHECK(hal_file_open(&file, PATH));
+    CHECK(hal_file_read(file, 0, seen, sizeof TEXT - 1));
+    hal_file_close(&file);
+    CHECK(memcmp(seen, TEXT, sizeof TEXT - 1) == 0);
+    CHECK_EQUAL(HAL_RESERVE_FAILED, hal_file_reserve("/Music/Playlist 1.m3u8", 8));
+    CHECK_EQUAL(HAL_RESERVE_FAILED, hal_file_reserve(HAL_CARD_EXPORT_FOLDER "../x.m3u8", 8));
+    CHECK_EQUAL(HAL_RESERVE_FAILED, hal_file_reserve(HAL_CARD_EXPORT_FOLDER "a/b.m3u8", 8));
+    CHECK(!hal_file_write_at("/song.flac", 0, TEXT, 1));
+}
+
 static void without_internal_storage_nothing_is_listed(void)
 {
     sim_storage_configure(ECHO_FIXTURE_DIR "/scan_music", NULL);
@@ -164,6 +187,7 @@ int main(void)
         TEST_CASE(internal_paths_read_the_internal_drive),
         TEST_CASE(the_player_never_writes_to_internal_storage),
         TEST_CASE(without_internal_storage_nothing_is_listed),
+        TEST_CASE(exports_are_the_only_card_writes),
     };
     return test_run_all(cases, TEST_CASE_COUNT(cases));
 }

@@ -724,6 +724,21 @@ static ScreenAction delete_playlist(void *context)
     return finish_action(pool, NULL);
 }
 
+static ScreenAction export_playlist(void *context)
+{
+    BrowsePool *pool = context;
+    SongActions *actions = &pool->song_actions;
+    if (!user_playlists_export(pool->config.playlists, actions->list_slot)) {
+        return finish_action(pool, i18n_text(STR_MENU_PLAYLIST_SAVE_FAILED));
+    }
+    char folder[BROWSE_PICK_LABEL_CAPACITY];
+    user_playlists_export_folder(folder, sizeof folder);
+    const char *arguments[] = {folder};
+    StringBuilder builder = string_builder_make(actions->message, sizeof actions->message);
+    i18n_format(&builder, STR_MENU_ADDED_TO_PLAYLIST, arguments, 1);
+    return finish_action(pool, actions->message);
+}
+
 static ScreenAction open_song_actions(BrowseScreen *browse, int index, uint16_t track)
 {
     BrowsePool *pool = browse->pool;
@@ -772,8 +787,10 @@ static ScreenAction open_playlist_actions(BrowseScreen *browse, int slot)
     actions->list_slot = slot;
     playlist_name(pool, slot, actions->title, sizeof actions->title);
     actions->items[0] = (MenuItem){
+        .label = i18n_text(STR_MENU_EXPORT_PLAYLIST), .select = export_playlist, .context = pool};
+    actions->items[1] = (MenuItem){
         .label = i18n_text(STR_MENU_DELETE_PLAYLIST), .select = delete_playlist, .context = pool};
-    return screen_action_push(show_actions(pool, 1));
+    return screen_action_push(show_actions(pool, 2));
 }
 
 static ScreenAction hold_row(void *context, int index)

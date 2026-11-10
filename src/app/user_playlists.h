@@ -41,5 +41,8 @@ int user_playlists_create_from(UserPlaylists *store, const uint16_t *tracks, uin
 UserPlaylistsResult user_playlists_add_track(UserPlaylists *store, int slot, uint16_t track);
 bool user_playlists_remove(UserPlaylists *store, int slot, uint32_t position);
 bool user_playlists_delete(UserPlaylists *store, int slot);
+void user_playlists_export_folder(char *buffer, uint32_t capacity);
+void user_playlists_export_path(uint16_t number, char *buffer, uint32_t capacity);
+bool user_playlists_export(UserPlaylists *store, int slot);
 void user_playlists_pin(UserPlaylists *store, int slot);
 BrowseQuery user_playlists_query(int slot, bool pinned);

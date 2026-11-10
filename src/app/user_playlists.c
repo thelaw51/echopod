@@ -2,11 +2,30 @@
 
 #include <stddef.h>
 
+#include "core/string_builder.h"
 #include "hal/audio.h"
 #include "hal/storage.h"
 #include "hal/system.h"
+#include "library/playlist_writer.h"
 
 const char USER_PLAYLISTS_PATH[] = "/.echo/playlists.bin";
+
+static const char EXPORT_NAME[] = "Playlist ";
+static const char EXPORT_SUFFIX[] = ".m3u8";
+static const char EXPORT_TRACK_PREFIX[] = "../";
+
+enum {
+    EXPORT_CHUNK = 512,
+    EXPORT_PATH_CAPACITY = 64
+};
+
+typedef struct ExportFile {
+    char path[EXPORT_PATH_CAPACITY];
+    uint32_t written;
+    uint32_t used;
+    bool failed;
+    char chunk[EXPORT_CHUNK];
+} ExportFile;
 
 static uint32_t slot_offset(int slot)
 {
@@ -298,4 +317,104 @@ BrowseQuery user_playlists_query(int slot, bool pinned)
                          .group = LIBRARY_ARTISTS,
                          .subject = list,
                          .artist = LIBRARY_NONE};
+}
+
+void user_playlists_export_folder(char *buffer, uint32_t capacity)
+{
+    StringBuilder builder = string_builder_make(buffer, capacity);
+    for (const char *cursor = &HAL_CARD_EXPORT_FOLDER[1]; cursor[0] != '\0' && cursor[1] != '\0';
+         cursor++) {
+        string_builder_append_char(&builder, *cursor);
+    }
+}
+
+void user_playlists_export_path(uint16_t number, char *buffer, uint32_t capacity)
+{
+    StringBuilder builder = string_builder_make(buffer, capacity);
+    string_builder_append(&builder, HAL_CARD_EXPORT_FOLDER);
+    string_builder_append(&builder, EXPORT_NAME);
+    string_builder_append_unsigned(&builder, number);
+    string_builder_append(&builder, EXPORT_SUFFIX);
+}
+
+static uint32_t export_entry(const UserPlaylists *store, uint16_t index, char *line)
+{
+    uint16_t track = store->loaded.tracks[index];
+    if (track == USER_PLAYLIST_NO_TRACK) {
+        return 0;
+    }
+    return playlist_writer_entry(store->library, track, EXPORT_TRACK_PREFIX, line,
+                                 PLAYLIST_WRITER_LINE_CAPACITY);
+}
+
+static uint32_t export_length(const UserPlaylists *store, char *line)
+{
+    uint32_t length = sizeof PLAYLIST_WRITER_HEADER - 1;
+    for (uint16_t index = 0; index < store->loaded.count; index++) {
+        length += export_entry(store, index, line);
+        if (index % USER_PLAYLIST_TRACKS_PER_PAUSE == 0) {
+            keep_audio_fed(NULL);
+        }
+    }
+    return length;
+}
+
+static bool make_room(const char *path, uint32_t length, uint32_t *size)
+{
+    HalFile file;
+    if (!hal_file_open(&file, path)) {
+        *size = length;
+        return hal_file_reserve(path, length) == HAL_RESERVE_CREATED;
+    }
+    *size = file.size;
+    hal_file_close(&file);
+    if (*size >= length) {
+        return true;
+    }
+    *size = length;
+    return hal_file_grow(path, length) == HAL_RESERVE_CREATED;
+}
+
+static void export_flush(ExportFile *file)
+{
+    if (!file->failed && file->used > 0) {
+        file->failed = !hal_file_write_at(file->path, file->written, file->chunk, file->used);
+        file->written += file->used;
+        keep_audio_fed(NULL);
+    }
+    file->used = 0;
+}
+
+static void export_put(ExportFile *file, const char *bytes, uint32_t length)
+{
+    for (uint32_t index = 0; index < length; index++) {
+        if (file->used == EXPORT_CHUNK) {
+            export_flush(file);
+        }
+        file->chunk[file->used++] = bytes[index];
+    }
+}
+
+bool user_playlists_export(UserPlaylists *store, int slot)
+{
+    char line[PLAYLIST_WRITER_LINE_CAPACITY];
+    ExportFile file = {.written = 0, .used = 0, .failed = false};
+    uint32_t size = 0;
+    if (!ensure_loaded(store, slot)) {
+        return false;
+    }
+    user_playlists_export_path(store->loaded.number, file.path, sizeof file.path);
+    uint32_t length = export_length(store, line);
+    if (!make_room(file.path, length, &size)) {
+        return false;
+    }
+    export_put(&file, PLAYLIST_WRITER_HEADER, sizeof PLAYLIST_WRITER_HEADER - 1);
+    for (uint16_t index = 0; index < store->loaded.count && !file.failed; index++) {
+        export_put(&file, line, export_entry(store, index, line));
+    }
+    for (uint32_t at = length; at < size && !file.failed; at++) {
+        export_put(&file, "\n", 1);
+    }
+    export_flush(&file);
+    return !file.failed && file.written == size;
 }
