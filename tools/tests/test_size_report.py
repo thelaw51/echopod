@@ -141,7 +141,7 @@ class ReportTest(unittest.TestCase):
         self.assertEqual(lines[0], "code window: 4,096 of 157,292 bytes, 153,196 free")
         self.assertEqual(lines[1], "loaded total (code + .data + .bss): 135,176 of 437,600 bytes, "
                                    "302,424 free")
-        self.assertEqual(lines[2], "resident tables: 15,152 of 18,432 bytes, 3,280 free")
+        self.assertEqual(lines[2], "resident tables: 15,152 of 24,064 bytes, 8,912 free")
         self.assertEqual(lines[3], "rescan overlay: 81,920 of 86,016 bytes, 4,096 free")
 
     def test_summary_measures_the_usb_overlay_in_the_image_and_with_its_zeroed_memory(self):

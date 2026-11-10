@@ -5,8 +5,6 @@
 enum {
     CHUNK = 128,
     OUT_CAPACITY = 128,
-    LINE_CAPACITY = LYRICS_PENDING_CAPACITY - 16,
-    TIME_CAPACITY = 16,
     KEY_PREFIX = 16,
     ID3_HEADER = 10,
     ID3_V22_FRAME_HEADER = 6,
@@ -20,13 +18,10 @@ enum {
     V24_ENCRYPT = 0x04,
     V24_UNSYNC = 0x02,
     V24_DATA_LENGTH = 0x01,
-    SYLT_MILLISECONDS = 2,
     FLAC_VORBIS_COMMENT = 4,
     OGG_HEADER = 27,
     OPUS_TAGS_PREFIX = 8,
-    VORBIS_COMMENT_PREFIX = 7,
-    ATOM_HEADER = 8,
-    MP4_DATA_HEADER = 8
+    VORBIS_COMMENT_PREFIX = 7
 };
 
 typedef enum Encoding {
@@ -40,8 +35,7 @@ typedef enum Container {
     CONTAINER_NONE,
     CONTAINER_ID3,
     CONTAINER_FLAC,
-    CONTAINER_OGG,
-    CONTAINER_MP4
+    CONTAINER_OGG
 } Container;
 
 typedef struct Span {
@@ -151,10 +145,9 @@ static Container container_for(const char *name)
     if (same_folded(extension, length, "flac")) {
         return CONTAINER_FLAC;
     }
-    if (same_folded(extension, length, "ogg") || same_folded(extension, length, "opus")) {
-        return CONTAINER_OGG;
-    }
-    return same_folded(extension, length, "m4a") ? CONTAINER_MP4 : CONTAINER_NONE;
+    return same_folded(extension, length, "ogg") || same_folded(extension, length, "opus")
+               ? CONTAINER_OGG
+               : CONTAINER_NONE;
 }
 
 static void cursor_open(Cursor *cursor, ByteSource source, const Span *span)
@@ -349,122 +342,6 @@ static bool read_uslt(ByteSource source, const Span *span, Lyrics *lyrics)
     return true;
 }
 
-typedef struct SyltLine {
-    Lyrics *lyrics;
-    char text[LINE_CAPACITY];
-    uint32_t used;
-    uint32_t time_ms;
-    bool open;
-} SyltLine;
-
-static void put_digits(Text *text, uint32_t value, uint32_t width)
-{
-    char digits[10];
-    uint32_t count = 0;
-    do {
-        digits[count++] = (char)('0' + value % 10);
-        value /= 10;
-    } while (value > 0 && count < sizeof digits);
-    while (count < width) {
-        digits[count++] = '0';
-    }
-    while (count > 0) {
-        put_raw(text, (uint8_t)digits[--count]);
-    }
-}
-
-static void line_flush(SyltLine *line)
-{
-    if (!line->open || line->lyrics == NULL) {
-        return;
-    }
-    char stamp[TIME_CAPACITY];
-    Text text = {.bytes = stamp, .used = 0, .capacity = sizeof stamp, .lyrics = NULL};
-    uint32_t seconds = line->time_ms / 1000;
-    put_raw(&text, '[');
-    put_digits(&text, seconds / 60, 2);
-    put_raw(&text, ':');
-    put_digits(&text, seconds % 60, 2);
-    put_raw(&text, '.');
-    put_digits(&text, line->time_ms % 1000, 3);
-    put_raw(&text, ']');
-    lyrics_feed(line->lyrics, stamp, text.used);
-    lyrics_feed(line->lyrics, line->text, line->used);
-    lyrics_feed(line->lyrics, "\n", 1);
-    line->open = false;
-}
-
-static void line_add(SyltLine *line, const char *bytes, uint32_t length, uint32_t time_ms,
-                     bool starts)
-{
-    if (starts || !line->open) {
-        line_flush(line);
-        line->used = 0;
-        line->time_ms = time_ms;
-        line->open = true;
-    }
-    for (uint32_t index = 0; index < length && line->used < sizeof line->text; index++) {
-        line->text[line->used++] = bytes[index];
-    }
-}
-
-static bool sylt_entries(Cursor *cursor, uint8_t encoding, SyltLine *line, bool grouped)
-{
-    bool any_break = false;
-    bool after_break = true;
-    for (;;) {
-        char bytes[LINE_CAPACITY];
-        Text text = {.bytes = bytes, .used = 0, .capacity = sizeof bytes, .lyrics = NULL};
-        uint8_t stamp[4] = {0};
-        bool ended = decode(cursor, encoding, true, &text);
-        if (!ended || !next_byte(cursor, &stamp[0]) || !next_byte(cursor, &stamp[1]) ||
-            !next_byte(cursor, &stamp[2]) || !next_byte(cursor, &stamp[3])) {
-            break;
-        }
-        uint32_t start = 0;
-        uint32_t end = text.used;
-        while (start < end && bytes[start] == '\n') {
-            start++;
-        }
-        bool leading = start > 0;
-        while (end > start && bytes[end - 1] == '\n') {
-            end--;
-        }
-        bool trailing = end < text.used;
-        any_break = any_break || leading || trailing;
-        line_add(line, bytes + start, end - start, be32(stamp), !grouped || leading || after_break);
-        after_break = trailing;
-    }
-    return any_break;
-}
-
-static bool read_sylt(ByteSource source, const Span *span, Lyrics *lyrics)
-{
-    Cursor cursor;
-    uint8_t header[6] = {0};
-    cursor_open(&cursor, source, span);
-    for (uint32_t index = 0; index < sizeof header; index++) {
-        if (!next_byte(&cursor, &header[index])) {
-            return false;
-        }
-    }
-    if (header[4] != SYLT_MILLISECONDS || !skip_string(&cursor, header[0])) {
-        return false;
-    }
-    Cursor entries = cursor;
-    SyltLine line = {.lyrics = NULL, .used = 0, .time_ms = 0, .open = false};
-    bool grouped = sylt_entries(&cursor, header[0], &line, false);
-    line = (SyltLine){.lyrics = lyrics, .used = 0, .time_ms = 0, .open = false};
-    sylt_entries(&entries, header[0], &line, grouped);
-    line_flush(&line);
-    return true;
-}
-
-typedef struct Id3Frames {
-    Span uslt;
-    Span sylt;
-} Id3Frames;
-
 static uint32_t id3_frame_size(uint8_t version, const uint8_t *header)
 {
     if (version == 2) {
@@ -492,19 +369,16 @@ static bool id3_usable(uint8_t version, uint8_t flags, bool tag_unsync, Span *sp
     return span->offset <= span->end;
 }
 
-static void id3_keep(Id3Frames *frames, const char *id, uint8_t version, Span span)
+static void id3_keep(Span *uslt, const char *id, uint8_t version, Span span)
 {
     uint32_t length = version == 2 ? 3 : 4;
-    bool uslt = same_text(id, length, version == 2 ? "ULT" : "USLT");
-    bool sylt = same_text(id, length, version == 2 ? "SLT" : "SYLT");
-    Span *slot = uslt ? &frames->uslt : sylt ? &frames->sylt : NULL;
-    if (slot != NULL && !slot->found) {
+    if (!uslt->found && same_text(id, length, version == 2 ? "ULT" : "USLT")) {
         span.found = true;
-        *slot = span;
+        *uslt = span;
     }
 }
 
-static void id3_find(ByteSource source, uint32_t size, Id3Frames *frames)
+static void id3_find(ByteSource source, uint32_t size, Span *uslt)
 {
     uint8_t header[ID3_HEADER];
     if (size < ID3_HEADER || !source_read(source, 0, header, sizeof header) ||
@@ -532,7 +406,7 @@ static void id3_find(ByteSource source, uint32_t size, Id3Frames *frames)
         }
         Span span = {.offset = data, .end = data + frame_size, .unsync = false, .found = false};
         if (id3_usable(version, version == 2 ? 0 : header[9], tag_unsync, &span)) {
-            id3_keep(frames, (const char *)header, version, span);
+            id3_keep(uslt, (const char *)header, version, span);
         }
         cursor = data + frame_size;
     }
@@ -540,10 +414,9 @@ static void id3_find(ByteSource source, uint32_t size, Id3Frames *frames)
 
 static bool id3_read(ByteSource source, uint32_t size, Lyrics *lyrics)
 {
-    Id3Frames frames = {.uslt = {.found = false}, .sylt = {.found = false}};
-    id3_find(source, size, &frames);
-    return (frames.sylt.found && read_sylt(source, &frames.sylt, lyrics)) ||
-           (frames.uslt.found && read_uslt(source, &frames.uslt, lyrics));
+    Span uslt = {.found = false};
+    id3_find(source, size, &uslt);
+    return uslt.found && read_uslt(source, &uslt, lyrics);
 }
 
 static bool vorbis_find(ByteSource source, uint32_t offset, uint32_t limit, Span *found)
@@ -715,61 +588,6 @@ static bool ogg_read(ByteSource file, uint32_t size, Lyrics *lyrics)
            read_value(source, &span, ENCODING_UTF8, lyrics);
 }
 
-typedef struct Atom {
-    uint32_t body;
-    uint32_t end;
-} Atom;
-
-static bool find_atom(ByteSource source, uint32_t start, uint32_t end, const char *type,
-                      Atom *found)
-{
-    uint8_t header[16];
-    uint32_t cursor = start;
-    while (cursor <= end && end - cursor >= ATOM_HEADER &&
-           source_read(source, cursor, header, ATOM_HEADER)) {
-        uint64_t size = be32(header);
-        uint32_t body = cursor + ATOM_HEADER;
-        if (size == 1) {
-            if (end - body < 8 || !source_read(source, body, header + 8, 8)) {
-                return false;
-            }
-            size = (uint64_t)be32(header + 8) << 32 | be32(header + 12);
-            body += 8;
-        } else if (size == 0) {
-            size = end - cursor;
-        }
-        if (size < body - cursor || size > end - cursor) {
-            return false;
-        }
-        if (same_text((const char *)header + 4, 4, type)) {
-            *found = (Atom){.body = body, .end = cursor + (uint32_t)size};
-            return true;
-        }
-        cursor += (uint32_t)size;
-    }
-    return false;
-}
-
-static bool mp4_read(ByteSource source, uint32_t size, Lyrics *lyrics)
-{
-    static const char *const PATH[] = {"moov", "udta", "meta", "ilst", "\xa9lyr", "data"};
-    Atom atom = {.body = 0, .end = size};
-    for (size_t index = 0; index < sizeof PATH / sizeof PATH[0]; index++) {
-        uint32_t start = atom.body;
-        if (index == 3) {
-            start += 4;
-        }
-        if (start > atom.end || !find_atom(source, start, atom.end, PATH[index], &atom)) {
-            return false;
-        }
-    }
-    if (atom.end - atom.body < MP4_DATA_HEADER) {
-        return false;
-    }
-    Span span = {.offset = atom.body + MP4_DATA_HEADER, .end = atom.end, .found = true};
-    return read_value(source, &span, ENCODING_UTF8, lyrics);
-}
-
 bool embedded_lyrics_read(ByteSource file, uint32_t size, const char *name, Lyrics *lyrics)
 {
     bool found = false;
@@ -782,9 +600,6 @@ bool embedded_lyrics_read(ByteSource file, uint32_t size, const char *name, Lyri
         break;
     case CONTAINER_OGG:
         found = ogg_read(file, size, lyrics);
-        break;
-    case CONTAINER_MP4:
-        found = mp4_read(file, size, lyrics);
         break;
     case CONTAINER_NONE:
         break;

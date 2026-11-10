@@ -27,9 +27,6 @@ typedef struct UserPlaylists {
     uint32_t revision;
     UserPlaylist loaded;
     int loaded_slot;
-    uint16_t playing[USER_PLAYLIST_TRACKS];
-    uint16_t playing_count;
-    int playing_slot;
 } UserPlaylists;
 
 void user_playlists_load(UserPlaylists *store, Library *library);

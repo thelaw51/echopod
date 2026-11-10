@@ -204,7 +204,7 @@ static uint16_t collect_tracks(const UpNextScreen *up_next, uint16_t *tracks)
     return found;
 }
 
-static const char *saved_message(UpNextScreen *up_next, int slot)
+static const char *saved_message(UpNextScreen *up_next, int slot, char message[TOAST_TEXT_CAPACITY])
 {
     if (slot == USER_PLAYLISTS_NO_SLOT) {
         return i18n_text(STR_MENU_PLAYLIST_SAVE_FAILED);
@@ -217,9 +217,9 @@ static const char *saved_message(UpNextScreen *up_next, int slot)
     StringBuilder named = string_builder_make(name, sizeof name);
     i18n_format(&named, STR_MENU_PLAYLIST_NUMBER, number_argument, 1);
     const char *name_argument[] = {name};
-    StringBuilder builder = string_builder_make(up_next->message, sizeof up_next->message);
+    StringBuilder builder = string_builder_make(message, TOAST_TEXT_CAPACITY);
     i18n_format(&builder, STR_MENU_ADDED_TO_PLAYLIST, name_argument, 1);
-    return up_next->message;
+    return message;
 }
 
 static ScreenAction save_as_playlist(UpNextScreen *up_next)
@@ -229,7 +229,8 @@ static ScreenAction save_as_playlist(UpNextScreen *up_next)
     int slot = count > 0 ? user_playlists_create_from(up_next->config.playlists, tracks, count)
                          : USER_PLAYLISTS_NO_SLOT;
     if (up_next->config.toast != NULL) {
-        toast_show(up_next->config.toast, saved_message(up_next, slot), up_next->now_ms);
+        char message[TOAST_TEXT_CAPACITY];
+        toast_show(up_next->config.toast, saved_message(up_next, slot, message), up_next->now_ms);
     }
     return screen_action_none();
 }
@@ -267,9 +268,9 @@ static ScreenAction toggle_love(void *context, int index)
     }
     LovedChange change = loved_tracks_toggle(up_next->config.loved, track);
     if (up_next->config.toast != NULL) {
-        const char *message =
-            loved_tracks_message(change, up_next->message, sizeof up_next->message);
-        toast_show(up_next->config.toast, message, up_next->now_ms);
+        char message[TOAST_TEXT_CAPACITY];
+        toast_show(up_next->config.toast, loved_tracks_message(change, message, sizeof message),
+                   up_next->now_ms);
     }
     return screen_action_none();
 }

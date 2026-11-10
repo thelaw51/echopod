@@ -4,7 +4,7 @@
 
 ### New
 
-- **Lyrics from the song's tags.** When there's no `.lrc` file, Now Playing shows lyrics saved inside the song: MP3 `SYLT` (synced) and `USLT`, FLAC, Ogg and Opus `LYRICS` or `UNSYNCEDLYRICS`, and M4A lyrics. Tag lyrics with `[mm:ss.xx]` times scroll with the song. A `.lrc` file still wins. Checked in the simulator, not yet on a player.
+- **Lyrics from the song's tags.** When there's no `.lrc` file, Now Playing shows lyrics saved inside the song: MP3 `USLT`, and FLAC, Ogg and Opus `LYRICS` or `UNSYNCEDLYRICS`. Tag lyrics with `[mm:ss.xx]` times scroll with the song. A `.lrc` file still wins. Checked in the simulator, not yet on a player.
 - **Playlists made on the player.** Hold ▶ on a song and choose Add to playlist. Your playlists appear at the top of Music → Playlists, up to 16 of 200 songs each, and survive a rescan. Hold ▶ on a song in one to remove it, or on the playlist to delete it. They're numbered (Playlist 1, Playlist 2), since the player has no keyboard.
 - **Save Up Next as a playlist, and export playlists for a computer.** Up Next has a New playlist row above the playing song that saves the queue, up to 200 songs. Hold ▶ on a playlist made on the player and choose Export to card to write it to `EchoPod Playlists/Playlist N.m3u8`, with paths relative to that folder, so MusicBee and other players on a computer can open it. Checked in the simulator, not yet on a player.
 - **Loved tracks.** Hold ▶ on a song and choose Love, or, from Now Playing, open Up Next with ≡ and hold ▶ on the song. Music → Favorites now starts with a Loved tracks row that plays your loved songs like any list. Up to 200 songs, kept in `/.echo/loved.bin` and found again by path after a rescan.
@@ -20,6 +20,11 @@
 - **The player no longer starts on an almost empty battery.** Turned on below about 7 % (3.55 V) without a charger, it shows "Battery low. Plug in to charge" for 2 seconds and switches off before it touches the card. Before, it started at 3.40 V and then shut itself down at 3.45 V a moment later, writing to the card on the way. The start level sits 100 mV above the running cut-off, so a battery that has just run flat and recovered a little doesn't start, stop and start again. With a charger plugged in, it opens the charge screen instead; hold Power for 2 seconds to use it while it charges.
 - **Settings from 0.9.1 or earlier carry over again.** Since 0.10.0, a player updated straight from 0.9.1 or earlier started from default settings: those versions wrote a 24-byte settings file and the newer firmware rejected anything under 32 bytes. Their brightness, volume, language, orientation and the rest now load, and are saved again in the current format.
 - **"No library" points at the rescan.** With a card but no library, the Music lists told you to run the PC indexer, a tool the player hasn't needed since it learned to build its own library. They now say Settings > Library > Rescan library, in every language.
+
+### Changed
+
+- **English only.** Settings → System no longer has a Language row, and the player ships the English text alone. A language saved by an earlier build is ignored.
+- **Fewer tag lyrics formats.** Synced MP3 `SYLT` lyrics and M4A lyrics are no longer read. MP3 `USLT`, FLAC, Ogg and Opus lyrics and `.lrc` files work as before.
 
 ## 0.11.1
 

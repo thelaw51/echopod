@@ -40,7 +40,6 @@ typedef struct UpNextScreen {
     char labels[UP_NEXT_ROWS][UP_NEXT_LABEL_CAPACITY];
     char details[UP_NEXT_ROWS][UP_NEXT_DETAIL_CAPACITY];
     uint32_t now_ms;
-    char message[UP_NEXT_LABEL_CAPACITY];
 } UpNextScreen;
 
 Screen *up_next_screen_init(UpNextScreen *up_next, UpNextConfig config);

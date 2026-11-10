@@ -7,12 +7,14 @@
 #include "fixture_library.h"
 #include "library/playlist_writer.h"
 #include "player.h"
+#include "ui/toast.h"
 
 static FixtureLibrary fixture;
 static BrowsePool pool;
 static FavoritesStore favorites;
 static UserPlaylists playlists;
 static Player player;
+static Toast toast;
 static uint8_t empty_playlists[USER_PLAYLIST_FILE_BYTES];
 
 static BrowseScreen *opened(BrowseQuery query)
@@ -22,10 +24,12 @@ static BrowseScreen *opened(BrowseQuery query)
     Library *library = fixture_library_open(&fixture);
     favorites = (FavoritesStore){.library = library};
     user_playlists_load(&playlists, library);
+    toast = (Toast){.visible = false};
     browse_pool_init(&pool, (BrowsePoolConfig){.library = library,
                                                .theme = &DEFAULT_THEME,
                                                .favorites = &favorites,
-                                               .playlists = &playlists});
+                                               .playlists = &playlists,
+                                               .toast = &toast});
     Screen *screen = browse_pool_open(&pool, 0, query);
     screen->enter(screen->context, 0);
     return screen->context;
@@ -303,7 +307,7 @@ static void exporting_writes_an_m3u8_file_to_the_card(void)
     CHECK(bytes != NULL);
     CHECK_EQUAL(length, size);
     CHECK(memcmp(expected, bytes, length) == 0);
-    CHECK(strcmp("Added to EchoPod Playlists", pool.song_actions.message) == 0);
+    CHECK(strcmp("Added to EchoPod Playlists", toast.text) == 0);
 }
 
 static void a_shorter_export_blanks_the_old_tail(void)

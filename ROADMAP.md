@@ -28,7 +28,7 @@ Version 0.11.1 plays 192 kHz FLAC cleanly again, keeps the landscape clock in pl
 | Library and covers built on a computer | device | echo-sync, one file for Windows, macOS and Linux, writes `library.db`, `covers.bin` and the scan fingerprint so the player doesn't rescan; 1,563 tracks in 2 min on Windows (macOS and Linux untested on a card) |
 | Screen-off controls | device | Pause, volume and track skip with the screen off |
 | Portrait mode | device | Settings → Orientation: Portrait or Portrait, flipped, with portrait layouts for Home, Now Playing, Cover Flow, the Custom EQ and lists; the volume rocker turns with the screen |
-| Languages | installed once; not checked screen by screen | Settings → Language, 16 languages in packs loaded at start; no native speaker has reviewed the translations yet (the Chinese starts from a contributor's text); Cyrillic, Greek and extended Latin letters in track names draw |
+| Languages | English only in this fork | the upstream translations were removed to free memory; Cyrillic, Greek and extended Latin letters in track names still draw |
 | Settings | device | Shuffle, repeat, equalizer, sleep timer, screen timeout, auto off, brightness, orientation, gain, output, start screen, USB mode |
 | Battery and power | device | Battery level, charging, charge screen, low-battery shutdown, auto off |
 | Bluetooth headphones | device | Pair, remember up to six, auto-reconnect, switch and disconnect; headphone controls; tested with OnePlus Buds 3 |
@@ -61,7 +61,7 @@ Version 0.11.1 plays 192 kHz FLAC cleanly again, keeps the landscape clock in pl
 | Parametric EQ: AutoEQ / Equalizer APO files in `/EQ` | in progress (works in the simulator; crackles on the player, so hidden there) |
 | ReplayGain | todo |
 | Lyrics (`.lrc`) | done |
-| Lyrics inside the music file (MP3 `USLT`/`SYLT`, FLAC, Ogg and Opus `LYRICS`, M4A) | done (checked in the simulator, not yet on a player) |
+| Lyrics inside the music file (MP3 `USLT`, FLAC, Ogg and Opus `LYRICS`) | done (checked in the simulator, not yet on a player) |
 | ALAC playback | done |
 | AAC playback | done |
 | HE-AAC playback | todo |

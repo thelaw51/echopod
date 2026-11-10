@@ -30,9 +30,6 @@ typedef struct LovedTracks {
     UserPlaylist loved;
     uint32_t checked_fingerprint;
     bool checked;
-    uint16_t playing[USER_PLAYLIST_TRACKS];
-    uint16_t playing_count;
-    bool pinned;
     uint32_t revision;
 } LovedTracks;
 

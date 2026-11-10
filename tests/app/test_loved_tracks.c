@@ -189,6 +189,40 @@ static void user_playlists_still_answer_through_the_loved_list(void)
     CHECK_EQUAL(4, list_track(library, user_playlists_query(slot, false), 0));
 }
 
+static void a_playlist_queue_takes_the_copy_and_loved_pins_again(void)
+{
+    Library *library = fresh_fixture();
+    fake_hal_add_file(USER_PLAYLISTS_PATH, empty_playlists, sizeof empty_playlists);
+    user_playlists_load(&playlists, library);
+    loved_tracks_load(&loved, library);
+    int slot = user_playlists_create(&playlists);
+    CHECK_EQUAL(USER_PLAYLISTS_ADDED, user_playlists_add_track(&playlists, slot, 4));
+    loved_tracks_toggle(&loved, 3);
+    loved_tracks_toggle(&loved, 6);
+    loved_tracks_pin(&loved);
+    user_playlists_pin(&playlists, slot);
+    CHECK_EQUAL(1, list_count(library, user_playlists_query(slot, true)));
+    CHECK_EQUAL(4, list_track(library, user_playlists_query(slot, true), 0));
+    CHECK_EQUAL(2, list_count(library, loved_tracks_query(true)));
+    CHECK_EQUAL(6, list_track(library, loved_tracks_query(true), 1));
+    CHECK_EQUAL(4, list_track(library, user_playlists_query(slot, true), 0));
+}
+
+static void loading_the_playlists_leaves_the_loved_queue_alone(void)
+{
+    Library *library = fresh_fixture();
+    fake_hal_add_file(USER_PLAYLISTS_PATH, empty_playlists, sizeof empty_playlists);
+    user_playlists_load(&playlists, library);
+    loved_tracks_load(&loved, library);
+    loved_tracks_toggle(&loved, 3);
+    loved_tracks_toggle(&loved, 6);
+    loved_tracks_pin(&loved);
+    loved_tracks_toggle(&loved, 3);
+    user_playlists_load(&playlists, library);
+    uint16_t pinned = LOVED_TRACKS_LIST | LOVED_TRACKS_PINNED;
+    CHECK_EQUAL(2, loved.lists.count(loved.lists.context, pinned));
+}
+
 static void album_favorites_load_as_before(void)
 {
     Library *library = fresh_fixture();
@@ -214,6 +248,8 @@ int main(void)
         TEST_CASE(a_song_missing_after_a_rescan_drops_out_and_comes_back),
         TEST_CASE(playback_keeps_its_copy_while_the_list_changes),
         TEST_CASE(user_playlists_still_answer_through_the_loved_list),
+        TEST_CASE(a_playlist_queue_takes_the_copy_and_loved_pins_again),
+        TEST_CASE(loading_the_playlists_leaves_the_loved_queue_alone),
         TEST_CASE(album_favorites_load_as_before),
     };
     return test_run_all(cases, TEST_CASE_COUNT(cases));
