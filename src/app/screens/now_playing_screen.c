@@ -459,6 +459,7 @@ static void load_lyrics(NowPlayingScreen *now_playing, const LibraryTrack *track
     NowPlayingLyrics *lyrics = &now_playing->lyrics;
     lyrics->ready = false;
     lyrics->current = LYRICS_NONE;
+    lyrics->offset_ms = track->cue ? track->start_ms : 0;
     lyrics_start(&lyrics->lyrics);
     char path[PLAYER_PATH_CAPACITY] = "/";
     if (!lyrics_wanted(now_playing) ||
@@ -567,8 +568,9 @@ static bool showing(const NowPlayingScreen *now_playing, NowPlayingFeedback feed
 static void follow_lyrics(NowPlayingScreen *now_playing, uint32_t now_ms)
 {
     NowPlayingLyrics *lyrics = &now_playing->lyrics;
-    int current = lyrics_current(&lyrics->lyrics, now_playing->status.position_ms,
-                                 now_playing->status.duration_ms);
+    uint32_t offset = lyrics->lyrics.synced ? lyrics->offset_ms : 0;
+    int current = lyrics_current(&lyrics->lyrics, offset + now_playing->status.position_ms,
+                                 offset + now_playing->status.duration_ms);
     if (current != lyrics->current) {
         lyrics->current = current;
         lyrics->current_ms = now_ms;
