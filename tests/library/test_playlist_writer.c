@@ -4,6 +4,7 @@
 #include "check.h"
 #include "fixture_library.h"
 #include "library/playlist_writer.h"
+#include "memory_source.h"
 
 static FixtureLibrary fixture;
 
@@ -50,6 +51,26 @@ static void names_keep_their_utf8(void)
     CHECK(strstr(line, "\nBj\xc3\xb6rk/Homogenic/02 - J\xc3\xb3ga.flac\n") != NULL);
 }
 
+static void cue_tracks_name_their_image_with_their_own_title(void)
+{
+    static uint8_t bytes[4096];
+    FILE *file = fopen(ECHO_FIXTURE_DIR "/cue_music.db", "rb");
+    CHECK(file != NULL);
+    size_t size = file == NULL ? 0 : fread(bytes, 1, sizeof bytes, file);
+    if (file != NULL) {
+        fclose(file);
+    }
+    MemorySource memory = {.bytes = bytes, .size = (uint32_t)size};
+    Library library;
+    CHECK_EQUAL(LIBRARY_OK, library_open(&library, memory_source(&memory), (uint32_t)size));
+    char first[PLAYLIST_WRITER_LINE_CAPACITY];
+    char second[PLAYLIST_WRITER_LINE_CAPACITY];
+    CHECK(playlist_writer_entry(&library, 5, "../", first, sizeof first) > 0);
+    CHECK(playlist_writer_entry(&library, 6, "../", second, sizeof second) > 0);
+    CHECK(strcmp("#EXTINF:1,The Cue Band - Opening\n../Album/Image.wav\n", first) == 0);
+    CHECK(strcmp("#EXTINF:1,Guest Singer - Second Song\n../Album/Image.wav\n", second) == 0);
+}
+
 static void an_entry_that_does_not_fit_is_left_out(void)
 {
     const Library *library = fixture_library_open(&fixture);
@@ -69,6 +90,7 @@ int main(void)
     static const TestCase cases[] = {
         TEST_CASE(a_track_becomes_an_info_line_and_a_relative_path),
         TEST_CASE(names_keep_their_utf8),
+        TEST_CASE(cue_tracks_name_their_image_with_their_own_title),
         TEST_CASE(an_entry_that_does_not_fit_is_left_out),
         TEST_CASE(a_missing_track_is_left_out),
     };
