@@ -78,6 +78,9 @@ endforeach()
 target_compile_definitions(test_user_playlist PRIVATE
     ECHO_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
 )
+target_compile_definitions(test_smart_list PRIVATE
+    ECHO_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
+)
 add_library(echo_reference_builder STATIC
     library/reference/reference_builder.c
     library/reference/reference_builder_encode.c

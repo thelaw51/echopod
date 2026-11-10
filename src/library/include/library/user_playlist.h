@@ -36,6 +36,7 @@ bool user_playlist_remove_at(UserPlaylist *playlist, uint16_t position);
 void user_playlist_encode(const UserPlaylist *playlist, uint8_t *bytes);
 bool user_playlist_decode(const uint8_t *bytes, uint32_t length, UserPlaylist *playlist);
 bool user_playlist_track_key(const Library *library, uint16_t track, uint32_t *key);
+bool user_playlist_file_key(const Library *library, uint16_t track, uint32_t *key);
 bool user_playlist_is_current(const UserPlaylist *playlist, const Library *library);
 void user_playlist_resolve(UserPlaylist *playlist, const Library *library, UserPlaylistPause pause);
 uint16_t user_playlist_playable(const UserPlaylist *playlist, uint16_t *tracks, uint16_t capacity);

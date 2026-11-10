@@ -44,7 +44,7 @@ typedef struct PlayStat {
 void smart_rank_init(SmartRank *rank, SmartEntry *entries, uint16_t capacity);
 void smart_rank_offer(SmartRank *rank, SmartEntry entry);
 bool smart_list_resolve(const Library *library, SmartEntry *entries, uint16_t count, bool walk,
-                        UserPlaylistPause pause);
+                        bool files, UserPlaylistPause pause);
 uint16_t smart_list_tracks(const SmartEntry *entries, uint16_t count, uint16_t *tracks);
 
 void play_stat_encode(const PlayStat *stat, uint8_t *bytes);

@@ -76,13 +76,20 @@ void smart_rank_offer(SmartRank *rank, SmartEntry entry)
     }
 }
 
-static bool key_at(const Library *library, uint16_t track, uint32_t *key)
+static bool key_of(const Library *library, uint16_t track, bool files, uint32_t *key)
 {
-    return track < library_music_count(library, LIBRARY_TRACKS) &&
-           user_playlist_track_key(library, track, key);
+    return files ? user_playlist_file_key(library, track, key)
+                 : user_playlist_track_key(library, track, key);
 }
 
-static bool check_tracks(const Library *library, SmartEntry *entries, uint16_t count, bool *changed)
+static bool key_at(const Library *library, uint16_t track, bool files, uint32_t *key)
+{
+    return track < library_music_count(library, LIBRARY_TRACKS) &&
+           key_of(library, track, files, key);
+}
+
+static bool check_tracks(const Library *library, SmartEntry *entries, uint16_t count, bool files,
+                         bool *changed)
 {
     bool all = true;
     for (uint16_t index = 0; index < count; index++) {
@@ -90,7 +97,7 @@ static bool check_tracks(const Library *library, SmartEntry *entries, uint16_t c
         SmartEntry *entry = &entries[index];
         if (entry->track == SMART_LIST_NO_TRACK) {
             all = false;
-        } else if (!key_at(library, entry->track, &key) || key != entry->key) {
+        } else if (!key_at(library, entry->track, files, &key) || key != entry->key) {
             entry->track = SMART_LIST_NO_TRACK;
             *changed = true;
             all = false;
@@ -111,16 +118,16 @@ static void match_track(SmartEntry *entries, uint16_t count, uint32_t key, uint1
 }
 
 bool smart_list_resolve(const Library *library, SmartEntry *entries, uint16_t count, bool walk,
-                        UserPlaylistPause pause)
+                        bool files, UserPlaylistPause pause)
 {
     bool changed = false;
-    if (check_tracks(library, entries, count, &changed) || !walk) {
+    if (check_tracks(library, entries, count, files, &changed) || !walk) {
         return changed;
     }
     uint32_t tracks = library_music_count(library, LIBRARY_TRACKS);
     for (uint32_t track = 0; track < tracks; track++) {
         uint32_t key = 0;
-        if (user_playlist_track_key(library, (uint16_t)track, &key)) {
+        if (key_of(library, (uint16_t)track, files, &key)) {
             match_track(entries, count, key, (uint16_t)track, &changed);
         }
         if (pause.between_tracks != NULL && track % TRACKS_PER_PAUSE == 0) {

@@ -1,8 +1,10 @@
+#include <stdio.h>
 #include <string.h>
 
 #include "check.h"
 #include "fixture_library.h"
 #include "library/smart_list.h"
+#include "memory_source.h"
 
 static FixtureLibrary fixture;
 static SmartEntry entries[SMART_LIST_TRACKS];
@@ -203,7 +205,7 @@ static void resolving_finds_tracks_and_skips_missing_ones(void)
     SmartEntry list[3] = {entry(key_of(library, 5), 3, 0), entry(0x12345678, 2, 0),
                           entry(key_of(library, 1), 1, 0)};
     uint16_t tracks[3];
-    CHECK(smart_list_resolve(library, list, 3, true, (UserPlaylistPause){NULL, NULL}));
+    CHECK(smart_list_resolve(library, list, 3, true, false, (UserPlaylistPause){NULL, NULL}));
     CHECK_EQUAL(2, smart_list_tracks(list, 3, tracks));
     CHECK_EQUAL(5, tracks[0]);
     CHECK_EQUAL(1, tracks[1]);
@@ -218,14 +220,14 @@ static void a_stale_track_after_a_rescan_is_found_again_in_its_place(void)
     list[1].track = 3;
     list[2].track = 0;
     uint16_t tracks[3];
-    CHECK(smart_list_resolve(library, list, 3, false, (UserPlaylistPause){NULL, NULL}));
+    CHECK(smart_list_resolve(library, list, 3, false, false, (UserPlaylistPause){NULL, NULL}));
     CHECK_EQUAL(SMART_LIST_NO_TRACK, list[1].track);
-    CHECK(smart_list_resolve(library, list, 3, true, (UserPlaylistPause){NULL, NULL}));
+    CHECK(smart_list_resolve(library, list, 3, true, false, (UserPlaylistPause){NULL, NULL}));
     CHECK_EQUAL(3, smart_list_tracks(list, 3, tracks));
     CHECK_EQUAL(2, tracks[0]);
     CHECK_EQUAL(6, tracks[1]);
     CHECK_EQUAL(0, tracks[2]);
-    CHECK(!smart_list_resolve(library, list, 3, true, (UserPlaylistPause){NULL, NULL}));
+    CHECK(!smart_list_resolve(library, list, 3, true, false, (UserPlaylistPause){NULL, NULL}));
 }
 
 static void spoken_tracks_never_join_a_list(void)
@@ -236,9 +238,39 @@ static void spoken_tracks_never_join_a_list(void)
     SmartEntry list[2] = {entry(spoken, 2, 0), entry(key_of(library, 3), 1, 0)};
     list[0].track = 7;
     uint16_t tracks[2];
-    (void)smart_list_resolve(library, list, 2, true, (UserPlaylistPause){NULL, NULL});
+    (void)smart_list_resolve(library, list, 2, true, false, (UserPlaylistPause){NULL, NULL});
     CHECK_EQUAL(1, smart_list_tracks(list, 2, tracks));
     CHECK_EQUAL(3, tracks[0]);
+}
+
+static void a_split_file_is_added_as_its_first_cue_track(void)
+{
+    static uint8_t bytes[4096];
+    FILE *file = fopen(ECHO_FIXTURE_DIR "/cue_music.db", "rb");
+    CHECK(file != NULL);
+    size_t size = file == NULL ? 0 : fread(bytes, 1, sizeof bytes, file);
+    if (file != NULL) {
+        fclose(file);
+    }
+    MemorySource memory = {.bytes = bytes, .size = (uint32_t)size};
+    Library library;
+    CHECK_EQUAL(LIBRARY_OK, library_open(&library, memory_source(&memory), (uint32_t)size));
+    uint16_t first = SMART_LIST_NO_TRACK;
+    for (uint16_t track = 0; track < library_music_count(&library, LIBRARY_TRACKS); track++) {
+        LibraryTrack record;
+        CHECK(library_read_track(&library, track, &record));
+        if (record.cue && first == SMART_LIST_NO_TRACK) {
+            first = track;
+        }
+    }
+    CHECK(first != SMART_LIST_NO_TRACK);
+    uint32_t file_key = 0;
+    CHECK(user_playlist_file_key(&library, first, &file_key));
+    SmartEntry list[1] = {entry(file_key, 1, 0)};
+    CHECK(!smart_list_resolve(&library, list, 1, true, false, (UserPlaylistPause){NULL, NULL}));
+    CHECK(smart_list_resolve(&library, list, 1, true, true, (UserPlaylistPause){NULL, NULL}));
+    CHECK_EQUAL(first, list[0].track);
+    CHECK(!smart_list_resolve(&library, list, 1, false, true, (UserPlaylistPause){NULL, NULL}));
 }
 
 int main(void)
@@ -257,6 +289,7 @@ int main(void)
         TEST_CASE(resolving_finds_tracks_and_skips_missing_ones),
         TEST_CASE(a_stale_track_after_a_rescan_is_found_again_in_its_place),
         TEST_CASE(spoken_tracks_never_join_a_list),
+        TEST_CASE(a_split_file_is_added_as_its_first_cue_track),
     };
     return test_run_all(cases, TEST_CASE_COUNT(cases));
 }

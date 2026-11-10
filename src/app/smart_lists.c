@@ -32,14 +32,15 @@ static void resolve(SmartLists *smart, SmartKind kind, SmartEntry *entries, uint
     UserPlaylistPause pause = {keep_audio_fed, NULL};
     if (kind == SMART_RECENTLY_ADDED) {
         uint32_t stored = smart->walked[kind];
-        bool changed = smart_list_resolve(library, entries, count, stored != fingerprint, pause);
+        bool changed =
+            smart_list_resolve(library, entries, count, stored != fingerprint, true, pause);
         if (changed || stored != fingerprint) {
             smart_store_keep_added_tracks(entries, count, fingerprint);
         }
         return;
     }
     bool walk = smart->walked[kind] != fingerprint;
-    if (smart_list_resolve(library, entries, count, walk, pause)) {
+    if (smart_list_resolve(library, entries, count, walk, false, pause)) {
         for (uint16_t index = 0; index < count; index++) {
             smart_store_set_play_track(entries[index].place, entries[index].key,
                                        entries[index].track);

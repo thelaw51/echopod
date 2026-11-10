@@ -154,7 +154,7 @@ Music → Most Played and Recently Played read `/.echo/plays.bin` (16 KB, reserv
 
 `/.echo/added.bin` (4 KB, reserved by `card_files`) is the newest 100 music files by modified stamp, the same stamp the music fingerprint folds in, collected by the music check's walk after every rescan and USB session (`library/smart_list`). It holds the magic `EMAD`, `u16` version 1, a `u16` count, the `u32` library fingerprint the track indices were resolved against (0 when not yet), then 12-byte entries (`u32` path key, `u32` modified stamp, `u16` track index, 2 reserved bytes) newest first, ties in walk order, and an FNV-1a checksum of everything before it. A walk that finds the same keys and stamps leaves the file alone.
 
-Both lists keep track indices only as hints. When a hint no longer points at a music track with that key, as after a rescan, the player walks the tracks once and matches the keys, then writes the new indices back. A song that left the library is skipped, and comes back if the file does. echo-sync doesn't write either file; neither changes `library.db`.
+Both lists keep track indices only as hints. When a hint no longer points at a music track with that key, as after a rescan, the player walks the tracks once and matches the keys, then writes the new indices back. A song that left the library is skipped, and comes back if the file does. Play counts use the playlist key, so each cue track counts on its own; Recently Added lists files, so a file split by a cue sheet shows up as its first cue track. echo-sync doesn't write either file; neither changes `library.db`.
 
 ## Bookmarks file
 

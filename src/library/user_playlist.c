@@ -137,7 +137,7 @@ static size_t text_length(const char *text)
     return length;
 }
 
-bool user_playlist_track_key(const Library *library, uint16_t track, uint32_t *key)
+static bool path_key(const Library *library, uint16_t track, bool cue_part, uint32_t *key)
 {
     LibraryTrack record;
     char path[PATH_CAPACITY];
@@ -150,11 +150,21 @@ bool user_playlist_track_key(const Library *library, uint16_t track, uint32_t *k
         start++;
     }
     *key = hash_update(HASH_START, start, text_length(start));
-    if (record.cue) {
+    if (cue_part && record.cue) {
         uint8_t part[2] = {'#', record.number};
         *key = hash_update(*key, part, sizeof part);
     }
     return true;
+}
+
+bool user_playlist_track_key(const Library *library, uint16_t track, uint32_t *key)
+{
+    return path_key(library, track, true, key);
+}
+
+bool user_playlist_file_key(const Library *library, uint16_t track, uint32_t *key)
+{
+    return path_key(library, track, false, key);
 }
 
 bool user_playlist_is_current(const UserPlaylist *playlist, const Library *library)
