@@ -16,6 +16,16 @@ void pinned_tracks_take(const void *owner, int key, const UserPlaylist *playlist
     pinned.key = key;
 }
 
+void pinned_tracks_copy(const void *owner, int key, const uint16_t *tracks, uint16_t count)
+{
+    pinned.count = count < USER_PLAYLIST_TRACKS ? count : USER_PLAYLIST_TRACKS;
+    for (uint16_t index = 0; index < pinned.count; index++) {
+        pinned.tracks[index] = tracks[index];
+    }
+    pinned.owner = owner;
+    pinned.key = key;
+}
+
 bool pinned_tracks_held(const void *owner, int key)
 {
     return owner != NULL && pinned.owner == owner && pinned.key == key;

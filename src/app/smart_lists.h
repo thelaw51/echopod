@@ -24,7 +24,6 @@ typedef struct SmartTracks {
     uint16_t tracks[SMART_LIST_TRACKS];
     uint16_t count;
     uint8_t kind;
-    bool valid;
     uint32_t fingerprint;
     uint32_t revision;
 } SmartTracks;
@@ -34,8 +33,7 @@ typedef struct SmartLists {
     LibraryTrackLists lists;
     const LibraryTrackLists *next;
     SmartTracks shown;
-    SmartTracks playing;
-    uint32_t walked[SMART_KIND_COUNT];
+    uint32_t walked[SMART_RECENTLY_ADDED];
 } SmartLists;
 
 void smart_lists_load(SmartLists *smart, Library *library);
