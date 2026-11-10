@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "library/library.h"
@@ -33,9 +34,14 @@ void user_playlists_load(UserPlaylists *store, Library *library);
 uint16_t user_playlists_count(const UserPlaylists *store);
 int user_playlists_slot_at(const UserPlaylists *store, uint16_t index);
 uint16_t user_playlists_number(const UserPlaylists *store, int slot);
+void user_playlists_name(const UserPlaylists *store, int slot, char *buffer, size_t capacity);
 int user_playlists_create(UserPlaylists *store);
+int user_playlists_create_from(UserPlaylists *store, const uint16_t *tracks, uint16_t count);
 UserPlaylistsResult user_playlists_add_track(UserPlaylists *store, int slot, uint16_t track);
 bool user_playlists_remove(UserPlaylists *store, int slot, uint32_t position);
 bool user_playlists_delete(UserPlaylists *store, int slot);
+void user_playlists_export_folder(char *buffer, uint32_t capacity);
+void user_playlists_export_path(uint16_t number, char *buffer, uint32_t capacity);
+bool user_playlists_export(UserPlaylists *store, int slot);
 void user_playlists_pin(UserPlaylists *store, int slot);
 BrowseQuery user_playlists_query(int slot, bool pinned);

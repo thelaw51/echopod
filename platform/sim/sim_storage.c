@@ -1,12 +1,16 @@
 #include "sim_storage.h"
 
 #include <dirent.h>
+#include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#if defined(_WIN32)
+#include <direct.h>
+#endif
 
 #include "core/volume_path.h"
 #include "hal/storage.h"
@@ -142,6 +146,36 @@ static bool is_system_path(const char *path)
            strncmp(path, SYSTEM_PREFIX, sizeof SYSTEM_PREFIX - 1) == 0;
 }
 
+static bool is_export_path(const char *path)
+{
+    size_t prefix_length = sizeof HAL_CARD_EXPORT_FOLDER - 1;
+    const char *name = path + prefix_length;
+    return storage.card_directory != NULL &&
+           strncmp(path, HAL_CARD_EXPORT_FOLDER, prefix_length) == 0 && name[0] != '\0' &&
+           name[0] != '.' && strchr(name, '/') == NULL && strchr(name, '\\') == NULL;
+}
+
+static bool is_writable_path(const char *path)
+{
+    return is_system_path(path) || is_export_path(path);
+}
+
+static bool make_export_folder(void)
+{
+    char folder[PATH_CAPACITY];
+    int written = snprintf(folder, sizeof folder, "%s%.*s", storage.card_directory,
+                           (int)(sizeof HAL_CARD_EXPORT_FOLDER - 2), HAL_CARD_EXPORT_FOLDER);
+    if (written <= 0 || (size_t)written >= sizeof folder) {
+        return false;
+    }
+#if defined(_WIN32)
+    int made = _mkdir(folder);
+#else
+    int made = mkdir(folder, 0777);
+#endif
+    return made == 0 || errno == EEXIST;
+}
+
 static bool replace_file(const char *from, const char *to)
 {
 #if defined(_WIN32)
@@ -154,7 +188,7 @@ bool hal_file_write(const char *path, const void *bytes, uint32_t length)
 {
     char resolved[PATH_CAPACITY];
     char temporary[PATH_CAPACITY];
-    if (!is_system_path(path) || !sim_storage_host_path(path, resolved, sizeof resolved)) {
+    if (!is_writable_path(path) || !sim_storage_host_path(path, resolved, sizeof resolved)) {
         return false;
     }
     int written_length = snprintf(temporary, sizeof temporary, "%s.tmp", resolved);
@@ -173,7 +207,7 @@ bool hal_file_write(const char *path, const void *bytes, uint32_t length)
 bool hal_file_write_at(const char *path, uint32_t offset, const void *bytes, uint32_t length)
 {
     char resolved[PATH_CAPACITY];
-    if (!is_system_path(path) || !sim_storage_host_path(path, resolved, sizeof resolved)) {
+    if (!is_writable_path(path) || !sim_storage_host_path(path, resolved, sizeof resolved)) {
         return false;
     }
     FILE *handle = fopen(resolved, "r+b");
@@ -189,8 +223,9 @@ HalReserveResult hal_file_reserve(const char *path, uint32_t size)
 {
     char resolved[PATH_CAPACITY];
     struct stat existing;
-    if (size == 0 || !is_system_path(path) ||
-        !sim_storage_host_path(path, resolved, sizeof resolved)) {
+    if (size == 0 || !is_writable_path(path) ||
+        !sim_storage_host_path(path, resolved, sizeof resolved) ||
+        (is_export_path(path) && !make_export_folder())) {
         return HAL_RESERVE_FAILED;
     }
     if (stat(resolved, &existing) == 0) {
@@ -209,7 +244,7 @@ HalReserveResult hal_file_grow(const char *path, uint32_t size)
 {
     char resolved[PATH_CAPACITY];
     struct stat existing;
-    if (size == 0 || !is_system_path(path) ||
+    if (size == 0 || !is_writable_path(path) ||
         !sim_storage_host_path(path, resolved, sizeof resolved) || stat(resolved, &existing) != 0) {
         return HAL_RESERVE_FAILED;
     }

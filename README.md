@@ -64,7 +64,7 @@ mkdir -p build/system
 ./build/dev/platform/sim/echo_sim --card /path/to/music --system-dir build/system
 ```
 
-The simulator behaves like the player: on the first start it creates `library.db`, `covers.bin` and the save files in the system folder, scans the music folder (every format stock lists, plus `.m3u`/`.m3u8` playlists) and finds the album covers. Settings → Rescan library scans again. The music folder is only ever read.
+The simulator behaves like the player: on the first start it creates `library.db`, `covers.bin` and the save files in the system folder, scans the music folder (every format stock lists, plus `.m3u`/`.m3u8` playlists) and finds the album covers. Settings → Rescan library scans again. The music folder is only read, except that Export to card writes playlists into its `EchoPod Playlists` folder.
 
 The PC tools still work and write the same formats (`tools/library_index.py`, `tools/cover_export.py`), but the player doesn't need them. To skip the scan on the player, **echo-sync** builds the library, the covers and the music fingerprint (`scan.bin`) on a computer, straight into the card's `/.echo` folder, so the player's check after USB finds nothing to rescan (`docs/user-guide.md`, Build the library on a computer). Each release carries it as one file for Windows, macOS (Apple silicon) and Linux, with nothing to install, built by `.github/workflows/echo-sync.yml` with PyInstaller; from the source it's `tools/echo_sync.py E:`. To build the file yourself: `python -m pip install -r tools/requirements.txt -r tools/requirements-build.txt`, then `python -m PyInstaller --onefile --name echo-sync --paths tools tools/echo_sync.py`.
 

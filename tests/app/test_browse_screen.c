@@ -5,13 +5,16 @@
 #include "default_theme.h"
 #include "fake_hal.h"
 #include "fixture_library.h"
+#include "library/playlist_writer.h"
 #include "player.h"
+#include "ui/toast.h"
 
 static FixtureLibrary fixture;
 static BrowsePool pool;
 static FavoritesStore favorites;
 static UserPlaylists playlists;
 static Player player;
+static Toast toast;
 static uint8_t empty_playlists[USER_PLAYLIST_FILE_BYTES];
 
 static BrowseScreen *opened(BrowseQuery query)
@@ -21,10 +24,12 @@ static BrowseScreen *opened(BrowseQuery query)
     Library *library = fixture_library_open(&fixture);
     favorites = (FavoritesStore){.library = library};
     user_playlists_load(&playlists, library);
+    toast = (Toast){.visible = false};
     browse_pool_init(&pool, (BrowsePoolConfig){.library = library,
                                                .theme = &DEFAULT_THEME,
                                                .favorites = &favorites,
-                                               .playlists = &playlists});
+                                               .playlists = &playlists,
+                                               .toast = &toast});
     Screen *screen = browse_pool_open(&pool, 0, query);
     screen->enter(screen->context, 0);
     return screen->context;
@@ -234,9 +239,10 @@ static void deleting_a_playlist_takes_its_row_away(void)
     ScreenAction action = press_play(lists, KEY_GESTURE_LONG_PRESS);
     CHECK_EQUAL(SCREEN_ACTION_PUSH, action.type);
     CHECK(action.target == &pool.song_actions.menu.screen);
-    CHECK_EQUAL(1, pool.song_actions.menu.config.item_count);
-    CHECK(strcmp("Delete playlist", pool.song_actions.items[0].label) == 0);
-    action = pool.song_actions.items[0].select(pool.song_actions.items[0].context);
+    CHECK_EQUAL(2, pool.song_actions.menu.config.item_count);
+    CHECK(strcmp("Export to card", pool.song_actions.items[0].label) == 0);
+    CHECK(strcmp("Delete playlist", pool.song_actions.items[1].label) == 0);
+    action = pool.song_actions.items[1].select(pool.song_actions.items[1].context);
     CHECK_EQUAL(SCREEN_ACTION_POP, action.type);
     lists->screen.enter(lists, 0);
     CHECK_EQUAL(card_lists, lists->count);
@@ -265,6 +271,75 @@ static BrowseQuery first_album(void)
                          .group = LIBRARY_ARTISTS,
                          .subject = 0,
                          .artist = LIBRARY_NONE};
+}
+
+static uint32_t expected_export(int tracks, char *text, uint32_t capacity)
+{
+    uint32_t length = (uint32_t)strlen(PLAYLIST_WRITER_HEADER);
+    memcpy(text, PLAYLIST_WRITER_HEADER, length);
+    for (int track = 0; track < tracks; track++) {
+        length += playlist_writer_entry(&fixture.library, (uint16_t)track, "../", text + length,
+                                        capacity - length);
+    }
+    text[length] = '\0';
+    return length;
+}
+
+static ScreenAction export_from_menu(BrowseScreen *lists)
+{
+    lists->screen.enter(lists, 0);
+    list_view_select(&lists->list, 0, 0);
+    CHECK_EQUAL(SCREEN_ACTION_PUSH, press_play(lists, KEY_GESTURE_LONG_PRESS).type);
+    CHECK(strcmp("Export to card", pool.song_actions.items[0].label) == 0);
+    return pool.song_actions.items[0].select(pool.song_actions.items[0].context);
+}
+
+static void exporting_writes_an_m3u8_file_to_the_card(void)
+{
+    BrowseScreen *lists = opened(browse_root_query(BROWSE_PLAYLISTS));
+    fake_hal_set_reserve_result(HAL_RESERVE_CREATED);
+    playlist_with_tracks(3);
+    CHECK_EQUAL(SCREEN_ACTION_POP, export_from_menu(lists).type);
+    char expected[4096];
+    uint32_t length = expected_export(3, expected, sizeof expected);
+    uint32_t size = 0;
+    const uint8_t *bytes = fake_hal_file_bytes("/EchoPod Playlists/Playlist 1.m3u8", &size);
+    CHECK(bytes != NULL);
+    CHECK_EQUAL(length, size);
+    CHECK(memcmp(expected, bytes, length) == 0);
+    CHECK(strcmp("Added to EchoPod Playlists", toast.text) == 0);
+}
+
+static void a_shorter_export_blanks_the_old_tail(void)
+{
+    BrowseScreen *lists = opened(browse_root_query(BROWSE_PLAYLISTS));
+    fake_hal_set_reserve_result(HAL_RESERVE_CREATED);
+    int slot = playlist_with_tracks(3);
+    export_from_menu(lists);
+    uint32_t longer = 0;
+    fake_hal_file_bytes("/EchoPod Playlists/Playlist 1.m3u8", &longer);
+    CHECK(user_playlists_remove(&playlists, slot, 2));
+    CHECK(user_playlists_export(&playlists, slot));
+    char expected[4096];
+    uint32_t length = expected_export(2, expected, sizeof expected);
+    uint32_t size = 0;
+    const uint8_t *bytes = fake_hal_file_bytes("/EchoPod Playlists/Playlist 1.m3u8", &size);
+    CHECK(length < longer);
+    CHECK_EQUAL(longer, size);
+    CHECK(memcmp(expected, bytes, length) == 0);
+    for (uint32_t at = length; at < size; at++) {
+        CHECK_EQUAL('\n', bytes[at]);
+    }
+}
+
+static void an_export_the_card_refuses_says_so(void)
+{
+    BrowseScreen *lists = opened(browse_root_query(BROWSE_PLAYLISTS));
+    fake_hal_set_reserve_result(HAL_RESERVE_NO_SPACE);
+    playlist_with_tracks(1);
+    export_from_menu(lists);
+    uint32_t size = 0;
+    CHECK(fake_hal_file_bytes("/EchoPod Playlists/Playlist 1.m3u8", &size) == NULL);
 }
 
 static void holding_a_song_adds_it_to_a_new_then_an_existing_playlist(void)
@@ -366,6 +441,9 @@ int main(void)
         TEST_CASE(a_song_held_inside_a_playlist_can_be_removed),
         TEST_CASE(playing_a_playlist_survives_editing_it),
         TEST_CASE(a_playing_playlist_resumes_after_a_restart),
+        TEST_CASE(exporting_writes_an_m3u8_file_to_the_card),
+        TEST_CASE(a_shorter_export_blanks_the_old_tail),
+        TEST_CASE(an_export_the_card_refuses_says_so),
     };
     return test_run_all(cases, TEST_CASE_COUNT(cases));
 }

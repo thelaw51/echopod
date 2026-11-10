@@ -4,6 +4,7 @@
 
 #include "core/i18n.h"
 #include "core/string_builder.h"
+#include "library/user_playlist.h"
 #include "ui/header.h"
 #include "ui/label.h"
 #include "ui/list_navigation.h"
@@ -13,6 +14,7 @@ enum {
 };
 
 typedef enum RowKind {
+    ROW_SAVE,
     ROW_PLAYING,
     ROW_ADDED,
     ROW_QUEUE
@@ -28,12 +30,21 @@ static int min_of(int first, int second)
     return first < second ? first : second;
 }
 
+static int entry_of(const UpNextScreen *up_next, int index)
+{
+    return index - up_next->extra;
+}
+
 static RowKind kind_of(const UpNextScreen *up_next, int index)
 {
-    if (index == 0) {
+    int entry = entry_of(up_next, index);
+    if (entry < 0) {
+        return ROW_SAVE;
+    }
+    if (entry == 0) {
         return ROW_PLAYING;
     }
-    return index <= up_next->added ? ROW_ADDED : ROW_QUEUE;
+    return entry <= up_next->added ? ROW_ADDED : ROW_QUEUE;
 }
 
 static bool wraps(const Player *player)
@@ -78,24 +89,29 @@ static void count_rows(UpNextScreen *up_next)
 {
     const Player *player = up_next->config.player;
     up_next->added = player->up_next.count;
-    up_next->count = player->has_track ? 1 + up_next->added + count_queue_rows(player) : 0;
+    up_next->extra = player->has_track && up_next->config.playlists != NULL ? 1 : 0;
+    up_next->count =
+        player->has_track ? up_next->extra + 1 + up_next->added + count_queue_rows(player) : 0;
     up_next->rows_first = -1;
 }
 
 static bool track_at(const UpNextScreen *up_next, int index, QueueWalk *walk, uint16_t *track)
 {
     const Player *player = up_next->config.player;
+    int entry = entry_of(up_next, index);
     switch (kind_of(up_next, index)) {
+    case ROW_SAVE:
+        return false;
     case ROW_PLAYING:
         *track = player->track;
         return true;
     case ROW_ADDED:
-        *track = player->up_next.tracks[index - 1];
+        *track = player->up_next.tracks[entry - 1];
         return true;
     case ROW_QUEUE:
         break;
     }
-    return walk_to(player, walk, index - up_next->added) &&
+    return walk_to(player, walk, entry - up_next->added) &&
            play_queue_track_at(&player->queue, walk->cursor, track);
 }
 
@@ -111,6 +127,11 @@ static void load_row(UpNextScreen *up_next, int row, int index, QueueWalk *walk)
     char *detail = up_next->details[row];
     label[0] = '\0';
     detail[0] = '\0';
+    if (kind_of(up_next, index) == ROW_SAVE) {
+        StringBuilder builder = string_builder_make(label, UP_NEXT_LABEL_CAPACITY);
+        string_builder_append(&builder, i18n_text(STR_MENU_NEW_PLAYLIST));
+        return;
+    }
     uint16_t track_index = 0;
     LibraryTrack track;
     if (!track_at(up_next, index, walk, &track_index) ||
@@ -118,7 +139,7 @@ static void load_row(UpNextScreen *up_next, int row, int index, QueueWalk *walk)
         return;
     }
     library_read_string(library, track.title, label, UP_NEXT_LABEL_CAPACITY);
-    if (index == 0) {
+    if (kind_of(up_next, index) == ROW_PLAYING) {
         StringBuilder builder = string_builder_make(detail, UP_NEXT_DETAIL_CAPACITY);
         string_builder_append(&builder, state_text(up_next->config.player));
         return;
@@ -170,19 +191,61 @@ static const char *row_detail(const void *context, int index)
     return detail[0] != '\0' ? detail : NULL;
 }
 
+static uint16_t collect_tracks(const UpNextScreen *up_next, uint16_t *tracks)
+{
+    QueueWalk walk = start_walk(up_next->config.player);
+    uint16_t found = 0;
+    for (int index = up_next->extra; index < up_next->count && found < USER_PLAYLIST_TRACKS;
+         index++) {
+        if (track_at(up_next, index, &walk, &tracks[found])) {
+            found++;
+        }
+    }
+    return found;
+}
+
+static const char *saved_message(UpNextScreen *up_next, int slot, char message[TOAST_TEXT_CAPACITY])
+{
+    if (slot == USER_PLAYLISTS_NO_SLOT) {
+        return i18n_text(STR_MENU_PLAYLIST_SAVE_FAILED);
+    }
+    char name[UP_NEXT_DETAIL_CAPACITY];
+    user_playlists_name(up_next->config.playlists, slot, name, sizeof name);
+    const char *name_argument[] = {name};
+    StringBuilder builder = string_builder_make(message, TOAST_TEXT_CAPACITY);
+    i18n_format(&builder, STR_MENU_ADDED_TO_PLAYLIST, name_argument, 1);
+    return message;
+}
+
+static ScreenAction save_as_playlist(UpNextScreen *up_next)
+{
+    uint16_t tracks[USER_PLAYLIST_TRACKS];
+    uint16_t count = collect_tracks(up_next, tracks);
+    int slot = count > 0 ? user_playlists_create_from(up_next->config.playlists, tracks, count)
+                         : USER_PLAYLISTS_NO_SLOT;
+    if (up_next->config.toast != NULL) {
+        char message[TOAST_TEXT_CAPACITY];
+        toast_show(up_next->config.toast, saved_message(up_next, slot, message), up_next->now_ms);
+    }
+    return screen_action_none();
+}
+
 static ScreenAction select_row(void *context, int index)
 {
     UpNextScreen *up_next = context;
     Player *player = up_next->config.player;
     QueueWalk walk = start_walk(player);
+    int entry = entry_of(up_next, index);
     switch (kind_of(up_next, index)) {
+    case ROW_SAVE:
+        return save_as_playlist(up_next);
     case ROW_PLAYING:
         break;
     case ROW_ADDED:
-        player_jump_to_up_next(player, (uint16_t)(index - 1));
+        player_jump_to_up_next(player, (uint16_t)(entry - 1));
         break;
     case ROW_QUEUE:
-        if (walk_to(player, &walk, index - up_next->added)) {
+        if (walk_to(player, &walk, entry - up_next->added)) {
             player_jump_to_queue(player, walk.cursor);
         }
         break;
@@ -223,6 +286,7 @@ static void enter(void *context, uint32_t now_ms)
     up_next->now_ms = now_ms;
     count_rows(up_next);
     list_view_init(&up_next->list, &up_next->model, up_next->config.theme, now_ms);
+    list_view_select(&up_next->list, up_next->extra, now_ms);
     refresh_rows(up_next);
 }
 
@@ -254,6 +318,7 @@ Screen *up_next_screen_init(UpNextScreen *up_next, UpNextConfig config)
 {
     up_next->config = config;
     up_next->count = 0;
+    up_next->extra = 0;
     up_next->added = 0;
     up_next->rows_first = -1;
     up_next->rows_count = 0;
