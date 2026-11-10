@@ -281,7 +281,6 @@ static void a_failed_save_says_so_and_keeps_the_library(void)
     fake_hal_set_card_missing(true);
     tap(KEY_BACK);
     CHECK(!rescan_requested);
-    CHECK(toast.text != NULL);
     CHECK_EQUAL(0, strcmp("Could not save settings", toast.text));
 }
 

@@ -30,6 +30,7 @@ add_library(echo_app STATIC
     update_record.c
     user_playlists.c
     loved_tracks.c
+    pinned_tracks.c
     screens/bluetooth_screen.c
     screens/charge_screen.c
     screens/cover_flow_screen.c
