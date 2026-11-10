@@ -31,7 +31,8 @@
 enum {
     HOME_ITEM_COUNT = 6,
     SHELF_COUNT = 2,
-    MUSIC_ITEM_COUNT = 12,
+    MUSIC_BROWSE_COUNT = 9,
+    MUSIC_ITEM_COUNT = MUSIC_BROWSE_COUNT + SMART_KIND_COUNT,
     DIAGNOSTICS_ITEM_COUNT = 23,
     START_PATH_CAPACITY = 2
 };
@@ -76,7 +77,7 @@ typedef struct AppScreens {
     NowPlayingScreen now_playing;
     UpNextScreen up_next;
     CoverFlowScreen cover_flow;
-    BrowseEntry browse_entries[MUSIC_ITEM_COUNT];
+    BrowseEntry browse_entries[MUSIC_BROWSE_COUNT];
     BrowseEntry shelf_entries[SHELF_COUNT];
     TestPatternScreen test_pattern;
     BluetoothScreen bluetooth;
