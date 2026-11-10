@@ -7,6 +7,7 @@
 - **Lyrics from the song's tags.** When there's no `.lrc` file, Now Playing shows lyrics saved inside the song: MP3 `SYLT` (synced) and `USLT`, FLAC, Ogg and Opus `LYRICS` or `UNSYNCEDLYRICS`, and M4A lyrics. Tag lyrics with `[mm:ss.xx]` times scroll with the song. A `.lrc` file still wins. Checked in the simulator, not yet on a player.
 - **Playlists made on the player.** Hold ▶ on a song and choose Add to playlist. Your playlists appear at the top of Music → Playlists, up to 16 of 200 songs each, and survive a rescan. Hold ▶ on a song in one to remove it, or on the playlist to delete it. They're numbered (Playlist 1, Playlist 2), since the player has no keyboard.
 - **Loved tracks.** Hold ▶ on a song and choose Love, or, from Now Playing, open Up Next with ≡ and hold ▶ on the song. Music → Favorites now starts with a Loved tracks row that plays your loved songs like any list. Up to 200 songs, kept in `/.echo/loved.bin` and found again by path after a rescan.
+- **Most Played, Recently Played and Recently Added.** Three new lists at the end of Music, up to 100 songs each. The first two count the songs you listen to (Last.fm's rule: over 30 s, and half the song or 4 minutes), need Listen history on, and survive a rescan. Recently Added goes by the files' modified dates on the card. Each plays like a playlist, with Shuffle all, Play Next and Add to Up Next.
 
 ### Safer installs
 

@@ -22,6 +22,7 @@ Version 0.11.1 plays 192 kHz FLAC cleanly again, keeps the landscape clock in pl
 | M3U and M3U8 playlists | device | Including MusicBee's Windows paths |
 | Album favorites | device | Hold Play on an album |
 | Loved tracks | simulator and tests | Hold Play on a song and choose Love, or hold Play on a song in Up Next; Favorites → Loved tracks plays them; up to 200, kept across rescans |
+| Most Played, Recently Played, Recently Added | sim | Up to 100 songs each, from listens (kept by path in `/.echo/plays.bin`) and file dates; works in the simulator, not yet checked on the player |
 | Audiobooks and podcasts | device | `Audiobooks` and `Podcasts` folders on Home, kept out of Music; a bookmark per book and episode, in-order play, hold vol± jumps 30 s / 15 s (shelves checked on the player, bookmarks and jumps in the simulator) |
 | Library and covers built on a computer | device | echo-sync, one file for Windows, macOS and Linux, writes `library.db`, `covers.bin` and the scan fingerprint so the player doesn't rescan; 1,563 tracks in 2 min on Windows (macOS and Linux untested on a card) |
 | Screen-off controls | device | Pause, volume and track skip with the screen off |

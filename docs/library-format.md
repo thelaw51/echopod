@@ -132,6 +132,14 @@ The path hashes let a playlist outlive a rescan. When the library's fingerprint 
 
 `resume.bin` stores a playlist's queue as kind `BROWSE_TRACK_LIST` (10) with the slot as its subject and bit `0x8000` set, the pinned copy. After a delete, a new playlist that takes the same slot is what resumes.
 
+## Play counts and recently added files
+
+Music → Most Played and Recently Played read `/.echo/plays.bin` (16 KB, reserved by `card_files`, `app/smart_store`). It holds 1,024 entries of 16 bytes in 32 buckets of 32; an entry lives in bucket `(key ^ key >> 16) % 32`. Each entry is the `u32` FNV-1a hash of the track's path without its leading `/` (the playlist key), `u16` plays, the `u16` track index it was last seen at (`0xFFFF` for none), a `u32` play tick and an FNV-1a checksum of the 12 bytes before it. An entry with 0 plays or a bad checksum is empty, so the zero-filled first 4 KB and whatever the card left past them read as empty. A listen (the scrobbler log's `L` rule) adds one play and the next tick to its song's entry, or takes the first empty one in its bucket, or replaces the bucket's least played entry (the oldest tick on a tie). The tick is one more than the highest in the file, so it doesn't depend on the clock or on `history.bin`. Each listen writes only its own 16 bytes.
+
+`/.echo/added.bin` (4 KB, reserved by `card_files`) is the newest 100 music files by modified stamp, the same stamp the music fingerprint folds in, collected by the music check's walk after every rescan and USB session (`library/smart_list`). It holds the magic `EMAD`, `u16` version 1, a `u16` count, the `u32` library fingerprint the track indices were resolved against (0 when not yet), then 12-byte entries (`u32` path key, `u32` modified stamp, `u16` track index, 2 reserved bytes) newest first, ties in walk order, and an FNV-1a checksum of everything before it. A walk that finds the same keys and stamps leaves the file alone.
+
+Both lists keep track indices only as hints. When a hint no longer points at a music track with that key, as after a rescan, the player walks the tracks once and matches the keys, then writes the new indices back. A song that left the library is skipped, and comes back if the file does. echo-sync doesn't write either file; neither changes `library.db`.
+
 ## Bookmarks file
 
 `/.echo/bookmarks.bin` (4 KB, reserved by the player) remembers where each audiobook and podcast episode stopped (`playback/bookmarks`). Like favorites, it is keyed by path hashes, so it outlives a re-index.
