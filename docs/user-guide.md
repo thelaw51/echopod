@@ -199,9 +199,8 @@ The file must be UTF-8 (with or without a BOM); other encodings, such as the GBK
 
 When a song has no `.lrc` file, Now Playing uses lyrics saved in the song's own tags:
 
-- **MP3:** synced lyrics (`SYLT`, with times in milliseconds) first, otherwise unsynced lyrics (`USLT`), in any ID3v2 text encoding. Synced lyrics written one syllable at a time, as karaoke taggers do, are joined back into lines.
+- **MP3:** unsynced lyrics (`USLT`), in any ID3v2 text encoding. Synced `SYLT` lyrics are not read.
 - **FLAC, Ogg Vorbis and Opus:** the `LYRICS` tag, otherwise `UNSYNCEDLYRICS`.
-- **M4A (AAC and ALAC):** the lyrics tag iTunes and Mp3tag write.
 
 Tag lyrics that contain `[mm:ss.xx]` times scroll with the song just like a `.lrc` file. A `.lrc` file always wins over the tags. The same 3 KB and 160-line limits apply, and the player reads at most 64 KB of a lyrics tag.
 

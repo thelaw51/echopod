@@ -302,61 +302,11 @@ static void id3v22_ult_reads(void)
     CHECK(line_is(0, "Old tag"));
 }
 
-static void utf16_sylt_keeps_each_entry_time(void)
-{
-    static const SyltEntry ENTRIES[] = {
-        {"Intro line", 500},
-        {"Second \xc3\xa9", 2250},
-        {"Third \xf0\x9f\x8e\xb5", 61005},
-    };
-    id3_start(3, 0);
-    make_sylt(1, 2, ENTRIES, 3);
-    id3_frame(3, "SYLT", 0, &frame);
-    id3_finish();
-    CHECK(read_file("song.mp3"));
-    CHECK(lyrics.synced);
-    CHECK_EQUAL(3, lyrics.count);
-    CHECK_EQUAL(500u, lyrics.lines[0].time_ms);
-    CHECK_EQUAL(2250u, lyrics.lines[1].time_ms);
-    CHECK_EQUAL(61005u, lyrics.lines[2].time_ms);
-    CHECK(line_is(0, "Intro line"));
-    CHECK(line_is(1, "Second \xc3\xa9"));
-    CHECK(line_is(2, "Third \xf0\x9f\x8e\xb5"));
-    CHECK_EQUAL(1, lyrics_current(&lyrics, 3000, 90000));
-}
-
-static void karaoke_sylt_joins_syllables_into_lines(void)
-{
-    static const SyltEntry ENTRIES[] = {
-        {"\nHel", 1000}, {"lo ", 1400}, {"there", 1800}, {"\nNext", 3000}, {" line", 3500},
-    };
-    id3_start(4, 0);
-    make_sylt(3, 2, ENTRIES, 5);
-    id3_frame(4, "SYLT", 0, &frame);
-    id3_finish();
-    CHECK(read_file("song.mp3"));
-    CHECK_EQUAL(2, lyrics.count);
-    CHECK(line_is(0, "Hello there"));
-    CHECK(line_is(1, "Next line"));
-    CHECK_EQUAL(1000u, lyrics.lines[0].time_ms);
-    CHECK_EQUAL(3000u, lyrics.lines[1].time_ms);
-}
-
-static void sylt_wins_over_uslt_and_frame_times_fall_back_to_uslt(void)
+static void sylt_frames_are_skipped_and_uslt_still_reads(void)
 {
     static const SyltEntry ENTRIES[] = {{"Synced", 1000}};
     id3_start(3, 0);
-    make_uslt(0, "", "Plain");
-    id3_frame(3, "USLT", 0, &frame);
     make_sylt(0, 2, ENTRIES, 1);
-    id3_frame(3, "SYLT", 0, &frame);
-    id3_finish();
-    CHECK(read_file("song.mp3"));
-    CHECK(lyrics.synced);
-    CHECK(line_is(0, "Synced"));
-
-    id3_start(3, 0);
-    make_sylt(0, 1, ENTRIES, 1);
     id3_frame(3, "SYLT", 0, &frame);
     make_uslt(0, "", "Plain");
     id3_frame(3, "USLT", 0, &frame);
@@ -365,6 +315,13 @@ static void sylt_wins_over_uslt_and_frame_times_fall_back_to_uslt(void)
     CHECK(!lyrics.synced);
     CHECK_EQUAL(1, lyrics.count);
     CHECK(line_is(0, "Plain"));
+
+    id3_start(4, 0);
+    make_sylt(3, 2, ENTRIES, 1);
+    id3_frame(4, "SYLT", 0, &frame);
+    id3_finish();
+    CHECK(!read_file("song.mp3"));
+    CHECK_EQUAL(0, lyrics.count);
 }
 
 static void compressed_frames_and_missing_tags_find_nothing(void)
@@ -527,7 +484,7 @@ static void add_data_atom(const char *text)
     atom_end(data);
 }
 
-static void mp4_lyrics_with_carriage_returns_read(void)
+static void mp4_lyrics_are_not_read(void)
 {
     file.size = 0;
     atom_end(atom_start("ftyp"));
@@ -549,12 +506,8 @@ static void mp4_lyrics_with_carriage_returns_read(void)
     atom_end(udta);
     atom_end(moov);
     atom_end(atom_start("mdat"));
-    CHECK(read_file("song.m4a"));
-    CHECK_EQUAL(4, lyrics.count);
-    CHECK(line_is(0, "iTunes line one"));
-    CHECK(line_is(1, "line two"));
-    CHECK(line_is(2, ""));
-    CHECK(line_is(3, "line four"));
+    CHECK(!read_file("song.m4a"));
+    CHECK_EQUAL(0, lyrics.count);
 }
 
 static void a_huge_value_is_read_only_up_to_the_cap(void)
@@ -598,14 +551,12 @@ int main(void)
         TEST_CASE(utf8_uslt_with_lrc_times_is_synced),
         TEST_CASE(an_unsynchronised_v24_frame_drops_the_inserted_zeros),
         TEST_CASE(id3v22_ult_reads),
-        TEST_CASE(utf16_sylt_keeps_each_entry_time),
-        TEST_CASE(karaoke_sylt_joins_syllables_into_lines),
-        TEST_CASE(sylt_wins_over_uslt_and_frame_times_fall_back_to_uslt),
+        TEST_CASE(sylt_frames_are_skipped_and_uslt_still_reads),
         TEST_CASE(compressed_frames_and_missing_tags_find_nothing),
         TEST_CASE(flac_lyrics_win_over_unsynced_lyrics),
         TEST_CASE(opus_unsynced_lyrics_cross_page_boundaries),
         TEST_CASE(ogg_vorbis_lyrics_read),
-        TEST_CASE(mp4_lyrics_with_carriage_returns_read),
+        TEST_CASE(mp4_lyrics_are_not_read),
         TEST_CASE(a_huge_value_is_read_only_up_to_the_cap),
     };
     return test_run_all(cases, TEST_CASE_COUNT(cases));

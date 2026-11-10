@@ -60,7 +60,7 @@ Version 0.11.1 plays 192 kHz FLAC cleanly again, keeps the landscape clock in pl
 | Parametric EQ: AutoEQ / Equalizer APO files in `/EQ` | in progress (works in the simulator; crackles on the player, so hidden there) |
 | ReplayGain | todo |
 | Lyrics (`.lrc`) | done |
-| Lyrics inside the music file (MP3 `USLT`/`SYLT`, FLAC, Ogg and Opus `LYRICS`, M4A) | done (checked in the simulator, not yet on a player) |
+| Lyrics inside the music file (MP3 `USLT`, FLAC, Ogg and Opus `LYRICS`) | done (checked in the simulator, not yet on a player) |
 | ALAC playback | done |
 | AAC playback | done |
 | HE-AAC playback | todo |
