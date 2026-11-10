@@ -20,6 +20,11 @@
 - **Settings from 0.9.1 or earlier carry over again.** Since 0.10.0, a player updated straight from 0.9.1 or earlier started from default settings: those versions wrote a 24-byte settings file and the newer firmware rejected anything under 32 bytes. Their brightness, volume, language, orientation and the rest now load, and are saved again in the current format.
 - **"No library" points at the rescan.** With a card but no library, the Music lists told you to run the PC indexer, a tool the player hasn't needed since it learned to build its own library. They now say Settings > Library > Rescan library, in every language.
 
+### Changed
+
+- **English only.** Settings → System no longer has a Language row, and the player ships the English text alone. A language saved by an earlier build is ignored.
+- **Fewer tag lyrics formats.** Synced MP3 `SYLT` lyrics and M4A lyrics are no longer read. MP3 `USLT`, FLAC, Ogg and Opus lyrics and `.lrc` files work as before.
+
 ## 0.11.1
 
 Smoother and steadier: 192 kHz FLAC plays cleanly again, and menus, Cover Flow and card reads do less work. Tested on one Echo Mini 8 GB.
