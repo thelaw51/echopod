@@ -3,6 +3,7 @@ add_executable(echo_device
     board/bluetooth.c
     board/clock.c
     board/clock_switch.c
+    board/cold.c
     board/core1.c
     board/cru.c
     board/dac.c
@@ -220,6 +221,7 @@ if(CMAKE_CROSSCOMPILING)
         board/audio.c
         board/bluetooth.c
         board/clock_switch.c
+        board/cold.c
         board/core1.c
         board/dac.c
         board/dmac.c

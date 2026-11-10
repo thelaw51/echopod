@@ -57,4 +57,11 @@ target_link_libraries(echo_app
 )
 if(CMAKE_CROSSCOMPILING)
     set_source_files_properties(scrobbler_log.c PROPERTIES COMPILE_OPTIONS -fno-lto)
+    set_source_files_properties(
+        settings_screens.c cold_screens.c diagnostics_rows.c diagnostics_values.c
+        diagnostics_menu.c diagnostics_menu_release.c equalizer_files.c
+        screens/equalizer_screen.c screens/bluetooth_screen.c screens/date_time_screen.c
+        screens/folders_screen.c screens/test_pattern_screen.c screens/stopwatch_screen.c
+        screens/font_sample_screen.c
+        PROPERTIES COMPILE_OPTIONS -fno-lto)
 endif()

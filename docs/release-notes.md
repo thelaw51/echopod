@@ -23,6 +23,7 @@
 
 ### Changed
 
+- **More room for new features.** Settings, the Equalizer, Bluetooth, Date & time, Music folders and Diagnostics now run from spare memory the player loads them into, which frees about 13 KB of the firmware's code space. Nothing should look different; if one of those screens misbehaves after a USB connection or a rescan, report it.
 - **Bluetooth, Equalizer and Date & time share their memory.** Only one of them can be open at a time. If one is still open under Settings (for example the Equalizer opened from Now Playing, then Settings with ≡ held), opening another shows "Close Equalizer first": go back to it and close it. This frees RAM for new features.
 - **English only.** Settings → System no longer has a Language row, and the player ships the English text alone. A language saved by an earlier build is ignored.
 - **Fewer tag lyrics formats.** Synced MP3 `SYLT` lyrics and M4A lyrics are no longer read. MP3 `USLT`, FLAC, Ogg and Opus lyrics and `.lrc` files work as before.

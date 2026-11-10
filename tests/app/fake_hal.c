@@ -153,6 +153,8 @@ typedef struct FakeHal {
     HalTime time;
     int time_reads;
     int time_writes;
+    int rescan_code_loads;
+    int rescan_code_releases;
     int open_files;
     int opens[FILE_CAPACITY];
     int open_file_limit;
@@ -1449,5 +1451,21 @@ bool hal_language_pack(uint32_t language, const uint8_t **pack, uint32_t *size)
 
 const void *hal_system_load_rescan_code(void)
 {
+    fake.rescan_code_loads++;
     return &LIBRARY_SCAN_ENTRY;
+}
+
+void hal_system_release_rescan_code(void)
+{
+    fake.rescan_code_releases++;
+}
+
+int fake_hal_rescan_code_held(void)
+{
+    return fake.rescan_code_loads - fake.rescan_code_releases;
+}
+
+int fake_hal_rescan_code_loads(void)
+{
+    return fake.rescan_code_loads;
 }

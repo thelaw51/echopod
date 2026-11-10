@@ -1297,6 +1297,16 @@ static void a_rescan_of_an_empty_card_writes_an_empty_library(void)
     CHECK(toast_is("Library: 0 tracks"));
 }
 
+static void a_rescan_gives_high_ram_back_when_it_ends(void)
+{
+    start_app_with_library();
+    fake_hal_set_empty_card(true);
+    app_request_rescan();
+    step();
+    CHECK_EQUAL(1, fake_hal_rescan_code_loads());
+    CHECK_EQUAL(0, fake_hal_rescan_code_held());
+}
+
 static void start_on_a_fresh_card(HalReserveResult result)
 {
     fake_hal_reset();
@@ -3082,6 +3092,7 @@ int main(void)
         TEST_CASE(a_missing_library_file_on_a_full_card_says_there_is_no_room),
         TEST_CASE(rescanning_without_a_card_says_so),
         TEST_CASE(a_rescan_of_an_empty_card_writes_an_empty_library),
+        TEST_CASE(a_rescan_gives_high_ram_back_when_it_ends),
         TEST_CASE(a_rescan_keeps_the_stall_watch_fed),
         TEST_CASE(a_rescan_rebuilds_the_covers_file),
         TEST_CASE(a_rescan_after_an_installed_update_asks_for_a_restart),

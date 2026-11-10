@@ -88,6 +88,7 @@ void board_glyphs_start(void)
     entry_count = 0;
     sector_lba = NO_SECTOR;
     board_resident_load();
+    board_cold_load();
     if (!emmc_start(&info) ||
         !emmc_read(NULL, info.layout.slot_1 + GLYPH_TABLE_OFFSET / SECTOR_BYTES, 1, table) ||
         table[0] != GLYPH_TABLE_MAGIC) {

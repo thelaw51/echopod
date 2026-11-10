@@ -31,11 +31,11 @@ def vector_table(stack=0x03004000, reset=RESET, size=256):
 
 
 def firmware(code_tail=b"\xAA" * 64, data_tail=b"", bss_size=0x100, stack=0x03004000,
-             reset=RESET, code_reset=RESET, resident=b""):
+             reset=RESET, code_reset=RESET, resident=b"", cold=b""):
     return make_image.Firmware(
         code=vector_table(reset=code_reset) + code_tail,
         data=struct.pack("<II", stack, reset) + data_tail,
-        bss_size=bss_size, resident=resident)
+        bss_size=bss_size, resident=resident, cold=cold)
 
 
 def build(firmware_parts=None, **options):
@@ -606,6 +606,127 @@ class ResidentTablesTest(unittest.TestCase):
                    len(parts.resident))
         with self.assertRaises(make_image.ImageError):
             make_image.firmware_from_elf(firmware_elf(parts, [section]))
+
+
+class ColdCodeTest(unittest.TestCase):
+    def cold(self, body=b"\x5A" * 100):
+        return bytes(16) + body
+
+    def test_the_cold_code_lands_at_its_offset_with_size_and_both_crcs(self):
+        parts = firmware(code_tail=b"!C" * 40, cold=self.cold())
+        image = build(parts)
+        offset = make_image.COLD_OFFSET
+        self.assertEqual(b"ECLD", image[offset:offset + 4])
+        self.assertEqual(len(parts.cold), word(image, offset + 4))
+        self.assertEqual(make_image.crc32(parts.cold[16:]), word(image, offset + 8))
+        self.assertEqual(make_image.crc32(parts.code), word(image, offset + 12))
+        self.assertEqual(parts.cold[16:], image[offset + 16:offset + len(parts.cold)])
+        self.assertEqual([], make_image.validate_image(image))
+
+    def test_the_cold_slot_ends_the_glyph_region_after_the_mp3_program(self):
+        mp3_end = (make_image.CORE1_MP3_OFFSET + make_image.CORE1_MODULE_HEADER_SIZE
+                   + make_image.CORE1_MODULE_CAPACITY)
+        self.assertIn((mp3_end, make_image.COLD_OFFSET), make_image.GLYPH_REGIONS)
+        self.assertEqual(make_image.CORE1_FLAC_OFFSET,
+                         make_image.COLD_OFFSET + make_image.COLD_CAPACITY)
+
+    def test_the_cold_code_is_not_loaded_at_start(self):
+        with_cold = build(firmware(cold=self.cold()))
+        without = build()
+        self.assertEqual(row(without, 0), row(with_cold, 0))
+        self.assertEqual(row(without, 1), row(with_cold, 1))
+
+    def test_cold_code_bigger_than_its_slot_or_without_a_header_is_refused(self):
+        with self.assertRaises(make_image.ImageError):
+            build(firmware(cold=self.cold(bytes(make_image.COLD_CAPACITY))))
+        with self.assertRaises(make_image.ImageError):
+            build(firmware(cold=b"\x01" * 8))
+        with self.assertRaises(make_image.ImageError):
+            build(firmware(cold=self.cold(b"\x01" * 7)))
+
+    def test_the_cold_code_comes_from_the_elf_cold_section(self):
+        parts = firmware(cold=self.cold(b"\x01\x02\x03\x04"))
+        section = (".cold", SHT_PROGBITS, SHF_ALLOC, 0x0308405C, parts.cold, len(parts.cold))
+        self.assertEqual(parts, make_image.firmware_from_elf(firmware_elf(parts, [section])))
+
+    def test_a_cold_section_outside_high_ram_or_into_the_language_pack_is_refused(self):
+        parts = firmware(cold=self.cold())
+        for address in (0x03079000, make_image.COLD_RAM_LIMIT - 64):
+            section = (".cold", SHT_PROGBITS, SHF_ALLOC, address, parts.cold, len(parts.cold))
+            with self.assertRaises(make_image.ImageError):
+                make_image.firmware_from_elf(firmware_elf(parts, [section]))
+
+
+def thumb_call(address, target, link=True):
+    offset = target - address - 4
+    sign = offset >> 24 & 1
+    high, low = offset >> 23 & 1, offset >> 22 & 1
+    first = 0xF000 | sign << 10 | offset >> 12 & 0x3FF
+    second = (0xD000 if link else 0x9000) | (1 ^ high ^ sign) << 13 | (1 ^ low ^ sign) << 11
+    return struct.pack("<HH", first, second | offset >> 1 & 0x7FF)
+
+
+def program_elf(sections, functions):
+    names = bytearray(1)
+    table = bytes(16)
+    for name, address, size in functions:
+        table += struct.pack("<IIIBBH", len(names), address | 1, size, 1 << 4 | 2, 0, 1)
+        names += name.encode() + bytes(1)
+    return elf_file([*sections, (".symtab", 2, 0, 0, table, len(table)),
+                     (".strtab", SHT_STRTAB, 0, 0, bytes(names), len(names))])
+
+
+class ColdReachTest(unittest.TestCase):
+    CODE = 0x03050000
+    COLD = 0x03084000
+    OVERLAY = 0x0307A000
+
+    def main_elf(self, hot_calls_cold):
+        hot = thumb_call(self.CODE, self.COLD if hot_calls_cold else self.CODE + 8) + bytes(4)
+        idle = bytes(8)
+        code = hot + idle
+        cold = bytes(8)
+        sections = [(".code", SHT_PROGBITS, SHF_ALLOC, self.CODE, code, len(code)),
+                    (".cold", SHT_PROGBITS, SHF_ALLOC, self.COLD, cold, len(cold))]
+        functions = [("show_notice", self.CODE, 8), ("idle", self.CODE + 8, 8),
+                     ("draw_settings", self.COLD, 8)]
+        return program_elf(sections, functions)
+
+    def overlay_elf(self, target, link=True):
+        code = thumb_call(self.OVERLAY, target, link) + bytes(4)
+        return program_elf([(".overlay", SHT_PROGBITS, SHF_ALLOC, self.OVERLAY, code, len(code))],
+                           [])
+
+    def test_branch_targets_decode_forward_and_backward_calls_and_jumps(self):
+        for address, target in ((0x0307A000, 0x03050000), (0x03050000, 0x03084000)):
+            for link in (True, False):
+                first, second = struct.unpack("<HH", thumb_call(address, target, link))
+                self.assertEqual(target, make_image.thumb_branch_target(first, second, address))
+        self.assertIsNone(make_image.thumb_branch_target(0xBF00, 0xBF00, 0x03050000))
+
+    def test_a_direct_call_into_cold_code_is_found(self):
+        path = make_image.cold_path(self.main_elf(False), self.overlay_elf(self.COLD))
+        self.assertEqual(["draw_settings"], path)
+
+    def test_a_call_that_reaches_cold_code_through_the_main_program_is_found(self):
+        path = make_image.cold_path(self.main_elf(True), self.overlay_elf(self.CODE, link=False))
+        self.assertEqual(["show_notice", "draw_settings"], path)
+
+    def test_calls_that_stay_out_of_cold_code_pass(self):
+        main = self.main_elf(False)
+        self.assertEqual([], make_image.cold_path(main, self.overlay_elf(self.CODE)))
+        make_image.check_overlay_stays_out_of_cold(main, self.overlay_elf(self.CODE), "USB overlay")
+
+    def test_calls_inside_an_overlay_that_covers_the_cold_addresses_are_its_own(self):
+        code = thumb_call(self.OVERLAY, self.COLD) + bytes(self.COLD - self.OVERLAY)
+        overlay = program_elf([(".overlay", SHT_PROGBITS, SHF_ALLOC, self.OVERLAY, code,
+                                len(code))], [])
+        self.assertEqual([], make_image.cold_path(self.main_elf(False), overlay))
+
+    def test_reaching_cold_code_stops_the_image(self):
+        with self.assertRaises(make_image.ImageError):
+            make_image.check_overlay_stays_out_of_cold(self.main_elf(True),
+                                                       self.overlay_elf(self.CODE), "USB overlay")
 
 
 class Core1ModuleTest(unittest.TestCase):

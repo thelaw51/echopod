@@ -33,6 +33,11 @@ RESIDENT_BASE = 0x03099200
 RESIDENT_CAPACITY = 0x5E00
 RESIDENT_HEADER_SIZE = 16
 RESIDENT_MAGIC = b"ERES"
+COLD_OFFSET = 0x278000
+COLD_CAPACITY = 0x8000
+COLD_HEADER_SIZE = 16
+COLD_MAGIC = b"ECLD"
+COLD_RAM_LIMIT = 0x0308F000
 CORE1_MODULE_CAPACITY = 0x20000
 CORE1_MODULE_HEADER_SIZE = 512
 CORE1_MODULE_MAGIC = b"EC1M"
@@ -46,7 +51,7 @@ GLYPH_REGIONS = (
     (GLYPH_PAYLOAD_LIMIT, OVERLAY_OFFSET),
     (GLYPH_TABLE_OFFSET + GLYPH_TABLE_SIZE, USB_OVERLAY_OFFSET),
     (RESIDENT_OFFSET + RESIDENT_CAPACITY, CORE1_MP3_OFFSET),
-    (CORE1_MP3_OFFSET + CORE1_MODULE_HEADER_SIZE + CORE1_MODULE_CAPACITY, CORE1_FLAC_OFFSET),
+    (CORE1_MP3_OFFSET + CORE1_MODULE_HEADER_SIZE + CORE1_MODULE_CAPACITY, COLD_OFFSET),
 )
 TABLE_CAPACITY = 91
 TABLE_OFFSET = 0x208
@@ -89,7 +94,7 @@ SHN_UNDEF = 0
 SHN_ABS = 0xFFF1
 SHF_ALLOC = 2
 SHT_NOBITS = 8
-FIRMWARE_SECTIONS = (".code", ".data", ".bss", ".resident")
+FIRMWARE_SECTIONS = (".code", ".data", ".bss", ".resident", ".cold")
 
 
 class ImageError(Exception):
@@ -102,6 +107,7 @@ class Firmware:
     data: bytes
     bss_size: int
     resident: bytes = b""
+    cold: bytes = b""
 
 
 @dataclass(frozen=True)
@@ -118,6 +124,7 @@ class ImageParts:
     core1_opus: bytes = b""
     resident: bytes = b""
     usb_overlay: bytes = b""
+    cold: bytes = b""
 
 
 def crc_table():
@@ -210,6 +217,7 @@ def assemble(parts):
     place_overlay(image, parts, parts.usb_overlay, USB_OVERLAY_OFFSET, USB_OVERLAY_CAPACITY,
                   USB_OVERLAY_MAGIC)
     place_resident(image, parts)
+    place_cold(image, parts)
     place_core1_module(image, parts.core1_mp3, CORE1_MP3_OFFSET)
     place_core1_module(image, parts.core1_flac, CORE1_FLAC_OFFSET)
     place_core1_module(image, parts.core1_aac, CORE1_AAC_OFFSET, CORE1_AAC_CAPACITY)
@@ -247,6 +255,17 @@ def place_resident(image, parts):
     header = RESIDENT_MAGIC + struct.pack("<III", len(resident),
                                           crc32(resident[RESIDENT_HEADER_SIZE:]), code_crc(parts))
     image[RESIDENT_OFFSET:RESIDENT_OFFSET + len(resident)] = header + resident[RESIDENT_HEADER_SIZE:]
+
+
+def place_cold(image, parts):
+    cold = parts.cold
+    if not cold:
+        return
+    if len(cold) > COLD_CAPACITY or len(cold) < COLD_HEADER_SIZE:
+        raise ImageError(f"the cold code must be {COLD_HEADER_SIZE} to {COLD_CAPACITY:#x} bytes")
+    header = COLD_MAGIC + struct.pack("<III", len(cold), crc32(cold[COLD_HEADER_SIZE:]),
+                                      code_crc(parts))
+    image[COLD_OFFSET:COLD_OFFSET + len(cold)] = header + cold[COLD_HEADER_SIZE:]
 
 
 def place_core1_module(image, program, offset, capacity=CORE1_MODULE_CAPACITY):
@@ -323,6 +342,8 @@ def check_firmware(firmware):
     if firmware.resident and (len(firmware.resident) % 4 or
                               len(firmware.resident) < RESIDENT_HEADER_SIZE):
         raise ImageError("the resident tables must start with a 16-byte header, in whole words")
+    if firmware.cold and (len(firmware.cold) % 4 or len(firmware.cold) < COLD_HEADER_SIZE):
+        raise ImageError("the cold code must start with a 16-byte header, in whole words")
     stack, reset = struct.unpack_from("<II", data)
     if stack != DATA_BASE:
         raise ImageError(f"the entry stack must be {DATA_BASE:#010x}")
@@ -399,7 +420,7 @@ def build_image(firmware, brand, build_tag, date, overlay=b"", core1_mp3=b"", co
     rows += [(0, 0, 0, 0)] * (TABLE_CAPACITY - len(rows))
     return assemble(ImageParts(bytes(header), tuple(rows), payload, bytes(MARKER_SIZE), overlay,
                                core1_mp3, core1_flac, tuple(glyph_faces), core1_aac, core1_opus,
-                               firmware.resident, usb_overlay))
+                               firmware.resident, usb_overlay, firmware.cold))
 
 
 def validate_image(image):
@@ -461,6 +482,11 @@ def check_sections(sections):
     resident = sections.get(".resident")
     if resident is not None and resident.size and resident.address != RESIDENT_BASE:
         raise ImageError(f".resident must be at {RESIDENT_BASE:#010x}")
+    cold = sections.get(".cold")
+    if cold is not None and cold.size and not (
+            OVERLAY_BASE <= cold.address and cold.address + cold.size <= COLD_RAM_LIMIT):
+        raise ImageError(f".cold must sit in High RAM, from {OVERLAY_BASE:#010x} "
+                         f"to {COLD_RAM_LIMIT:#010x}")
 
 
 def firmware_from_elf(elf):
@@ -471,8 +497,10 @@ def firmware_from_elf(elf):
     if bss is not None and bss.size and bss.address != DATA_BASE + len(data):
         raise ImageError(".bss must directly follow .data")
     resident = sections.get(".resident")
+    cold = sections.get(".cold")
     return Firmware(code=code, data=data, bss_size=bss.size if bss is not None else 0,
-                    resident=resident.content if resident is not None else b"")
+                    resident=resident.content if resident is not None else b"",
+                    cold=cold.content if cold is not None else b"")
 
 
 def overlay_from_elf(elf, zeroed=False):
@@ -520,6 +548,84 @@ def overlay_copies(main_elf, overlay_elf):
     return sorted(name for name, binding, kind, index in elf_symbols(overlay_elf)
                   if binding in (STB_GLOBAL, STB_WEAK) and kind in (STT_OBJECT, STT_FUNC)
                   and index not in (SHN_UNDEF, SHN_ABS) and name in main_names)
+
+
+def function_ranges(elf):
+    """(name, start, size) of every defined function in the ELF, without the Thumb bit."""
+    sections = elf_sections(elf)
+    symtab, strtab = sections.get(".symtab"), sections.get(".strtab")
+    if symtab is None or strtab is None:
+        return []
+    names = strtab.content
+    functions = []
+    for offset in range(0, len(symtab.content) - ELF_SYMBOL.size + 1, ELF_SYMBOL.size):
+        name, value, size, info, _, index = ELF_SYMBOL.unpack_from(symtab.content, offset)
+        if info & 0xF == STT_FUNC and size and index not in (SHN_UNDEF, SHN_ABS):
+            label = names[name:names.index(b"\x00", name)].decode("ascii", "replace")
+            functions.append((label, value & ~1, size))
+    return functions
+
+
+def thumb_branch_target(first, second, address):
+    """Where a 32-bit Thumb BL or B.W at address goes, or None for any other instruction."""
+    if first & 0xF800 != 0xF000 or second & 0x9000 != 0x9000:
+        return None
+    sign = first >> 10 & 1
+    high = 1 ^ (second >> 13 & 1 ^ sign)
+    low = 1 ^ (second >> 11 & 1 ^ sign)
+    offset = sign << 24 | high << 23 | low << 22 | (first & 0x3FF) << 12 | (second & 0x7FF) << 1
+    return address + 4 + offset - (sign << 25)
+
+
+def thumb_branch_targets(code, base):
+    targets = []
+    for offset in range(0, len(code) - 3, 2):
+        first, second = struct.unpack_from("<HH", code, offset)
+        target = thumb_branch_target(first, second, base + offset)
+        if target is not None:
+            targets.append(target)
+    return targets
+
+
+def cold_path(main_elf, overlay_elf):
+    """The calls by which the overlay reaches the main program's cold code, or [] if it can't.
+
+    The overlays run while the cold code is overwritten, so nothing they call directly or through
+    the main program's direct calls may sit there. Calls through pointers aren't followed.
+    """
+    sections = elf_sections(main_elf)
+    cold, code = sections.get(".cold"), sections.get(".code")
+    if cold is None or not cold.size or code is None:
+        return []
+    functions = {start: (name, size) for name, start, size in function_ranges(main_elf)}
+    overlay = elf_sections(overlay_elf).get(".overlay")
+    if overlay is None:
+        return []
+    own_end = overlay.address + len(overlay.content)
+    queue = [(target, []) for target in thumb_branch_targets(overlay.content, overlay.address)
+             if target in functions and not overlay.address <= target < own_end]
+    seen = set()
+    while queue:
+        start, path = queue.pop(0)
+        if start in seen:
+            continue
+        seen.add(start)
+        name, size = functions[start]
+        if cold.address <= start < cold.address + cold.size:
+            return path + [name]
+        if not code.address <= start < code.address + len(code.content):
+            continue
+        body = code.content[start - code.address:start - code.address + size]
+        queue += [(target, path + [name]) for target in thumb_branch_targets(body, start)
+                  if target in functions and target not in seen]
+    return []
+
+
+def check_overlay_stays_out_of_cold(main_elf, overlay_elf, label):
+    path = cold_path(main_elf, overlay_elf)
+    if path:
+        raise ImageError(f"the {label} reaches cold code, which it overwrites: "
+                         + " -> ".join(path))
 
 
 def check_overlay_copies(main_elf, overlay_elf, label):
@@ -597,10 +703,12 @@ def main(argv=None):
         if arguments.overlay:
             overlay_elf = arguments.overlay.read_bytes()
             check_overlay_copies(main_elf, overlay_elf, "rescan overlay")
+            check_overlay_stays_out_of_cold(main_elf, overlay_elf, "rescan overlay")
             overlay = overlay_from_elf(overlay_elf)
         if arguments.usb_overlay:
             usb_overlay_elf = arguments.usb_overlay.read_bytes()
             check_overlay_copies(main_elf, usb_overlay_elf, "USB overlay")
+            check_overlay_stays_out_of_cold(main_elf, usb_overlay_elf, "USB overlay")
             usb_overlay = overlay_from_elf(usb_overlay_elf, zeroed=True)
         core1_mp3 = arguments.core1_mp3.read_bytes() if arguments.core1_mp3 else b""
         core1_flac = arguments.core1_flac.read_bytes() if arguments.core1_flac else b""
@@ -623,6 +731,7 @@ def main(argv=None):
     print(f"wrote {arguments.output} ({build_tag}): "
           f"code {len(firmware.code):,} bytes, "
           f"overlay {len(overlay):,} bytes, resident {len(firmware.resident):,} bytes, "
+          f"cold {len(firmware.cold):,} bytes, "
           f"USB overlay {len(usb_overlay):,} bytes, "
           f"core 1 MP3 {len(core1_mp3):,} bytes, "
           f"core 1 FLAC {len(core1_flac):,} bytes, core 1 AAC {len(core1_aac):,} bytes, core 1 Opus {len(core1_opus):,} bytes, "
