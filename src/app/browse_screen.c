@@ -630,17 +630,17 @@ static Screen *show_actions(BrowsePool *pool, int count)
     return menu_screen_init(&actions->menu, config);
 }
 
-static const char *added_message(BrowsePool *pool, int slot, UserPlaylistsResult result)
+static const char *added_message(BrowsePool *pool, int slot, UserPlaylistsResult result,
+                                 char message[TOAST_TEXT_CAPACITY])
 {
-    SongActions *actions = &pool->song_actions;
     char name[BROWSE_PICK_LABEL_CAPACITY];
     switch (result) {
     case USER_PLAYLISTS_ADDED: {
         playlist_name(pool, slot, name, sizeof name);
         const char *arguments[] = {name};
-        StringBuilder builder = string_builder_make(actions->message, sizeof actions->message);
+        StringBuilder builder = string_builder_make(message, TOAST_TEXT_CAPACITY);
         i18n_format(&builder, STR_MENU_ADDED_TO_PLAYLIST, arguments, 1);
-        return actions->message;
+        return message;
     }
     case USER_PLAYLISTS_FULL:
         return i18n_text(STR_MENU_PLAYLIST_FULL);
@@ -661,7 +661,8 @@ static ScreenAction pick_playlist(void *context)
     }
     UserPlaylistsResult result =
         user_playlists_add_track(playlists, slot, pool->song_actions.track);
-    return finish_action(pool, added_message(pool, slot, result));
+    char message[TOAST_TEXT_CAPACITY];
+    return finish_action(pool, added_message(pool, slot, result, message));
 }
 
 static void add_pick(BrowsePool *pool, int item, int slot, const char *label)
@@ -710,8 +711,8 @@ static ScreenAction love_song(void *context)
     BrowsePool *pool = context;
     SongActions *actions = &pool->song_actions;
     LovedChange change = loved_tracks_toggle(pool->config.loved, actions->track);
-    return finish_action(pool,
-                         loved_tracks_message(change, actions->message, sizeof actions->message));
+    char message[TOAST_TEXT_CAPACITY];
+    return finish_action(pool, loved_tracks_message(change, message, sizeof message));
 }
 
 static ScreenAction delete_playlist(void *context)

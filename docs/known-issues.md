@@ -39,9 +39,7 @@ EchoPod is early firmware made by one person and tested on one player. It comes 
 
 ## Languages
 
-- **The translations are unreviewed.** No native speaker has checked them yet (the Chinese starts from a contributor's text). Terms such as the name of the Play key, Up Next, and the equalizer presets are guesses in several languages.
-- **Long texts may not fit.** The screen is 320 × 170 px, and some notices and hint lines in Japanese, Korean, German, Italian, Portuguese and Dutch run longer than the English; they may wrap onto an extra line or be cut. Not yet checked screen by screen on the player.
-- **A language change needs a restart.** The Language row saves the choice, and the player uses it from its next start.
+- **English only.** This fork ships the English pack alone; the upstream translations were removed to free memory.
 - **Some text stays English:** the Battery low notice shown before storage starts, the panic screen, the USB drive names the computer sees, the folder names `Audiobooks` and `Podcasts`, the fallback names the library builder writes (such as Unknown Artist), and the debug abbreviations in Diagnostics.
 
 ## echo-sync
@@ -52,7 +50,7 @@ EchoPod is early firmware made by one person and tested on one player. It comes 
 
 ## Not there yet
 
-- No ReplayGain. Lyrics come from a `.lrc` file next to the song (UTF-8 only) or from the song's tags (MP3, FLAC, Ogg, Opus and M4A; not WAV, WMA, APE or DSD), up to 3 KB of text and 160 lines. MP3 `SYLT` lyrics timed in MPEG frames rather than milliseconds are skipped, as are lyrics in an ID3v2.2 or 2.3 tag unsynchronised as a whole.
+- No ReplayGain. Lyrics come from a `.lrc` file next to the song (UTF-8 only) or from the song's tags (MP3 `USLT`, FLAC, Ogg and Opus; not `SYLT`, M4A, WAV, WMA, APE or DSD), up to 3 KB of text and 160 lines. Lyrics in an ID3v2.2 or 2.3 tag unsynchronised as a whole are skipped.
 - The equalizer is off for 176.4 and 192 kHz tracks and in USB DAC mode. Turning it on or off while a FLAC or ALAC track plays takes effect on the second core from the next track; until then the main core does the work, so on 88.2/96 kHz tracks the screen can be less smooth for the rest of that track.
 - Bluetooth pairing with a PIN or a six-digit number, LDAC or other codecs, and DSD/DSF files aren't supported. What is known about each so far is in `docs/research.md`.
 - Bluetooth has been tested with one pair of headphones (OnePlus Buds 3). While music goes to Bluetooth the player can't read the headphone jack: pause, plug wired headphones in and press Play to switch.

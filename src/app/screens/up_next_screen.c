@@ -200,9 +200,9 @@ static ScreenAction toggle_love(void *context, int index)
     }
     LovedChange change = loved_tracks_toggle(up_next->config.loved, track);
     if (up_next->config.toast != NULL) {
-        const char *message =
-            loved_tracks_message(change, up_next->message, sizeof up_next->message);
-        toast_show(up_next->config.toast, message, up_next->now_ms);
+        char message[TOAST_TEXT_CAPACITY];
+        toast_show(up_next->config.toast, loved_tracks_message(change, message, sizeof message),
+                   up_next->now_ms);
     }
     return screen_action_none();
 }

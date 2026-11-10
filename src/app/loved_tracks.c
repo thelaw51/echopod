@@ -7,6 +7,7 @@
 #include "hal/audio.h"
 #include "hal/storage.h"
 #include "hal/system.h"
+#include "pinned_tracks.h"
 
 const char LOVED_TRACKS_PATH[] = "/.echo/loved.bin";
 
@@ -95,10 +96,10 @@ static uint32_t list_count(void *context, uint16_t list)
         return others != NULL ? others->count(others->context, list) : 0;
     }
     if ((list & LOVED_TRACKS_PINNED) != 0) {
-        if (!store->pinned) {
+        if (!pinned_tracks_held(store, 0)) {
             loved_tracks_pin(store);
         }
-        return store->playing_count;
+        return pinned_tracks_count();
     }
     return loved_tracks_count(store);
 }
@@ -111,14 +112,10 @@ static bool list_track(void *context, uint16_t list, uint32_t position, uint16_t
         return others != NULL && others->track(others->context, list, position, track);
     }
     if ((list & LOVED_TRACKS_PINNED) != 0) {
-        if (!store->pinned) {
+        if (!pinned_tracks_held(store, 0)) {
             loved_tracks_pin(store);
         }
-        if (position >= store->playing_count) {
-            return false;
-        }
-        *track = store->playing[position];
-        return true;
+        return pinned_tracks_at(position, track);
     }
     ensure_checked(store);
     return playable_at(&store->loved, position, track);
@@ -133,8 +130,7 @@ void loved_tracks_load(LovedTracks *store, Library *library)
     }
     library->track_lists = &store->lists;
     store->checked = false;
-    store->pinned = false;
-    store->playing_count = 0;
+    pinned_tracks_release(store);
     store->revision++;
     if (!read_loved(&store->loved)) {
         user_playlist_clear(&store->loved, LOVED_TRACKS_NUMBER);
@@ -195,9 +191,7 @@ LovedChange loved_tracks_toggle(LovedTracks *store, uint16_t track)
 void loved_tracks_pin(LovedTracks *store)
 {
     ensure_checked(store);
-    store->playing_count =
-        user_playlist_playable(&store->loved, store->playing, USER_PLAYLIST_TRACKS);
-    store->pinned = true;
+    pinned_tracks_take(store, 0, &store->loved);
 }
 
 BrowseQuery loved_tracks_query(bool pinned)

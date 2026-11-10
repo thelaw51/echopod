@@ -7,11 +7,12 @@
 #include "ui/theme.h"
 
 enum {
-    TOAST_DURATION_MS = 1500
+    TOAST_DURATION_MS = 1500,
+    TOAST_TEXT_CAPACITY = 128
 };
 
 typedef struct Toast {
-    const char *text;
+    char text[TOAST_TEXT_CAPACITY];
     uint32_t until_ms;
     bool visible;
 } Toast;

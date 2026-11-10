@@ -5,6 +5,7 @@
 #include "hal/audio.h"
 #include "hal/storage.h"
 #include "hal/system.h"
+#include "pinned_tracks.h"
 
 const char USER_PLAYLISTS_PATH[] = "/.echo/playlists.bin";
 
@@ -92,12 +93,10 @@ static bool playable_at(const UserPlaylist *playlist, uint32_t position, uint16_
 
 void user_playlists_pin(UserPlaylists *store, int slot)
 {
-    store->playing_slot = USER_PLAYLISTS_NO_SLOT;
-    store->playing_count = 0;
     if (ensure_loaded(store, slot)) {
-        store->playing_count =
-            user_playlist_playable(&store->loaded, store->playing, USER_PLAYLIST_TRACKS);
-        store->playing_slot = slot;
+        pinned_tracks_take(store, slot, &store->loaded);
+    } else {
+        pinned_tracks_release(store);
     }
 }
 
@@ -113,10 +112,10 @@ static uint32_t list_count(void *context, uint16_t list)
     bool pinned = false;
     int slot = slot_of(list, &pinned);
     if (pinned) {
-        if (store->playing_slot != slot) {
+        if (!pinned_tracks_held(store, slot)) {
             user_playlists_pin(store, slot);
         }
-        return store->playing_slot == slot ? store->playing_count : 0;
+        return pinned_tracks_held(store, slot) ? pinned_tracks_count() : 0;
     }
     if (!ensure_loaded(store, slot)) {
         return 0;
@@ -137,14 +136,10 @@ static bool list_track(void *context, uint16_t list, uint32_t position, uint16_t
     int slot = slot_of(list, &pinned);
     uint16_t entry = 0;
     if (pinned) {
-        if (store->playing_slot != slot) {
+        if (!pinned_tracks_held(store, slot)) {
             user_playlists_pin(store, slot);
         }
-        if (store->playing_slot != slot || position >= store->playing_count) {
-            return false;
-        }
-        *track = store->playing[position];
-        return true;
+        return pinned_tracks_held(store, slot) && pinned_tracks_at(position, track);
     }
     if (!ensure_loaded(store, slot) || !playable_at(&store->loaded, position, &entry)) {
         return false;
@@ -159,8 +154,7 @@ void user_playlists_load(UserPlaylists *store, Library *library)
     store->lists = (LibraryTrackLists){.count = list_count, .track = list_track, .context = store};
     library->track_lists = &store->lists;
     store->loaded_slot = USER_PLAYLISTS_NO_SLOT;
-    store->playing_slot = USER_PLAYLISTS_NO_SLOT;
-    store->playing_count = 0;
+    pinned_tracks_release(store);
     store->revision++;
     for (int slot = 0; slot < USER_PLAYLIST_SLOTS; slot++) {
         UserPlaylist *playlist = &store->loaded;

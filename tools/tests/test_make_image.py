@@ -596,7 +596,7 @@ class ResidentTablesTest(unittest.TestCase):
 
     def test_the_tables_come_from_the_elf_resident_section(self):
         parts = firmware(resident=self.resident(b"\x01\x02\x03\x04"))
-        section = (".resident", SHT_PROGBITS, SHF_ALLOC, 0x0309A800, parts.resident,
+        section = (".resident", SHT_PROGBITS, SHF_ALLOC, 0x03099200, parts.resident,
                    len(parts.resident))
         self.assertEqual(parts, make_image.firmware_from_elf(firmware_elf(parts, [section])))
 
