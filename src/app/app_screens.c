@@ -137,6 +137,7 @@ static void build_music(AppScreens *screens, AppScreensContext context)
         .now_playing = &screens->now_playing.screen,
         .favorites = context.favorites,
         .playlists = context.playlists,
+        .loved = context.loved,
         .toast = context.toast,
         .spoken = context.spoken,
         .options = context.settings->settings.options,
@@ -252,8 +253,11 @@ Screen *app_screens_init(AppScreens *screens, AppScreensContext context)
         .title = i18n_text(card ? STR_MENU_NO_LIBRARY : STR_MENU_NO_CARD),
         .message = i18n_text(card ? STR_MENU_NO_LIBRARY_HINT : STR_MENU_NO_CARD_HINT),
         .theme = theme};
-    UpNextConfig up_next = {
-        .library = &context.store->library, .theme = theme, .player = context.player};
+    UpNextConfig up_next = {.library = &context.store->library,
+                            .theme = theme,
+                            .player = context.player,
+                            .loved = context.loved,
+                            .toast = context.toast};
     NowPlayingConfig now_playing = {.player = context.player,
                                     .library = &context.store->library,
                                     .theme = theme,

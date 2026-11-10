@@ -32,6 +32,7 @@
 #include "library_rescan.h"
 #include "library_store.h"
 #include "listen_history.h"
+#include "loved_tracks.h"
 #include "music_check.h"
 #include "player.h"
 #include "screens/charge_screen.h"
@@ -132,6 +133,7 @@ typedef struct AppState {
     EqualizerStore equalizer;
     FavoritesStore favorites;
     UserPlaylists playlists;
+    LovedTracks loved;
     SpokenStore spoken;
     ListenHistory history;
     ClockStore clock;
@@ -823,6 +825,7 @@ static void start_playback(void)
     cover_cache_close(&app.covers);
     library_store_open(&app.library);
     user_playlists_load(&app.playlists, &app.library.library);
+    loved_tracks_load(&app.loved, &app.library.library);
     player_init(&app.player, &app.library.library);
     settings_store_restore_playback(&app.settings, &app.player, hal_clock_microseconds());
     player_restore(&app.player);
@@ -862,6 +865,7 @@ static void start_screens(uint32_t now_ms)
         .settings = &app.settings,
         .favorites = &app.favorites,
         .playlists = &app.playlists,
+        .loved = &app.loved,
         .power = &app.power,
         .toast = &app.toast,
         .covers = &app.covers,
