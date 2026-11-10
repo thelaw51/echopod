@@ -209,13 +209,8 @@ static const char *saved_message(UpNextScreen *up_next, int slot, char message[T
     if (slot == USER_PLAYLISTS_NO_SLOT) {
         return i18n_text(STR_MENU_PLAYLIST_SAVE_FAILED);
     }
-    char number[UP_NEXT_DETAIL_CAPACITY];
     char name[UP_NEXT_DETAIL_CAPACITY];
-    StringBuilder digits = string_builder_make(number, sizeof number);
-    string_builder_append_unsigned(&digits, user_playlists_number(up_next->config.playlists, slot));
-    const char *number_argument[] = {number};
-    StringBuilder named = string_builder_make(name, sizeof name);
-    i18n_format(&named, STR_MENU_PLAYLIST_NUMBER, number_argument, 1);
+    user_playlists_name(up_next->config.playlists, slot, name, sizeof name);
     const char *name_argument[] = {name};
     StringBuilder builder = string_builder_make(message, TOAST_TEXT_CAPACITY);
     i18n_format(&builder, STR_MENU_ADDED_TO_PLAYLIST, name_argument, 1);

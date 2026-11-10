@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 
+#include "core/i18n.h"
 #include "core/string_builder.h"
 #include "hal/audio.h"
 #include "hal/storage.h"
@@ -206,6 +207,16 @@ int user_playlists_slot_at(const UserPlaylists *store, uint16_t index)
 uint16_t user_playlists_number(const UserPlaylists *store, int slot)
 {
     return valid_slot(slot) ? store->numbers[slot] : 0;
+}
+
+void user_playlists_name(const UserPlaylists *store, int slot, char *buffer, size_t capacity)
+{
+    char number[8];
+    StringBuilder digits = string_builder_make(number, sizeof number);
+    string_builder_append_unsigned(&digits, user_playlists_number(store, slot));
+    const char *arguments[] = {number};
+    StringBuilder builder = string_builder_make(buffer, capacity);
+    i18n_format(&builder, STR_MENU_PLAYLIST_NUMBER, arguments, 1);
 }
 
 int user_playlists_create(UserPlaylists *store)
