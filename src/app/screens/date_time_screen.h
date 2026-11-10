@@ -33,3 +33,4 @@ typedef struct DateTimeScreen {
 Screen *date_time_screen_init(DateTimeScreen *screen, DateTimeConfig config);
 ScreenAction date_time_screen_open(void *context);
 const char *date_time_screen_summary(const void *context);
+const char *date_time_screen_config_summary(const DateTimeConfig *config);

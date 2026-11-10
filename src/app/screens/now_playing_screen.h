@@ -72,7 +72,8 @@ typedef struct NowPlayingConfig {
     const Theme *theme;
     CoverCache *covers;
     Screen *up_next;
-    Screen *equalizer;
+    ScreenAction (*open_equalizer)(void *context);
+    void *equalizer;
     const uint8_t *options;
 } NowPlayingConfig;
 

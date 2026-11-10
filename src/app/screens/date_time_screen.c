@@ -256,13 +256,18 @@ ScreenAction date_time_screen_open(void *context)
 
 const char *date_time_screen_summary(const void *context)
 {
-    static char summary[WALL_CLOCK_DATE_TIME_CAPACITY];
     const DateTimeScreen *screen = context;
+    return date_time_screen_config_summary(&screen->config);
+}
+
+const char *date_time_screen_config_summary(const DateTimeConfig *config)
+{
+    static char summary[WALL_CLOCK_DATE_TIME_CAPACITY];
     WallCivil civil;
-    if (!clock_store_now(screen->config.clock, hal_clock_milliseconds(), &civil)) {
+    if (!clock_store_now(config->clock, hal_clock_milliseconds(), &civil)) {
         return i18n_text(STR_SETTINGS_NOT_SET);
     }
-    WallClockStyle style = clock_store_style(&screen->config.store->settings, true);
+    WallClockStyle style = clock_store_style(&config->store->settings, true);
     wall_clock_date_time_text(&civil, &style, summary, sizeof summary);
     return summary;
 }

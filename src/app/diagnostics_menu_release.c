@@ -9,6 +9,9 @@ enum {
     RELEASE_DIAGNOSTICS_COUNT = 17
 };
 
+_Static_assert((int)RELEASE_DIAGNOSTICS_COUNT <= (int)DIAGNOSTICS_ITEM_COUNT,
+               "the release Diagnostics rows must fit the item array");
+
 static MenuItem value_item(StringId label, const char *(*value)(const void *context))
 {
     return (MenuItem){.label = i18n_text(label), .select = NULL, .context = NULL, .value = value};

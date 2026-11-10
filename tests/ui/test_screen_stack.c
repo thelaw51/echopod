@@ -122,6 +122,18 @@ static void screens_without_an_enter_callback_can_be_shown(void)
     CHECK(screen_stack_top(&stack) == &fakes[1].screen);
 }
 
+static void the_stack_holds_every_screen_it_shows_but_not_popped_ones(void)
+{
+    ScreenStack stack = stack_with_root();
+    screen_stack_apply(&stack, screen_action_push(&fakes[1].screen), 200);
+    screen_stack_apply(&stack, screen_action_push(&fakes[2].screen), 300);
+    screen_stack_apply(&stack, screen_action_pop(), 400);
+    CHECK(screen_stack_holds(&stack, &fakes[0].screen));
+    CHECK(screen_stack_holds(&stack, &fakes[1].screen));
+    CHECK(!screen_stack_holds(&stack, &fakes[2].screen));
+    CHECK(!screen_stack_holds(&stack, NULL));
+}
+
 int main(void)
 {
     static const TestCase cases[] = {
@@ -135,6 +147,7 @@ int main(void)
         TEST_CASE(pushing_nothing_is_refused),
         TEST_CASE(the_none_action_changes_nothing),
         TEST_CASE(screens_without_an_enter_callback_can_be_shown),
+        TEST_CASE(the_stack_holds_every_screen_it_shows_but_not_popped_ones),
     };
     return test_run_all(cases, TEST_CASE_COUNT(cases));
 }

@@ -391,8 +391,8 @@ static ScreenAction run_command(NowPlayingScreen *now_playing, NowPlayingCommand
         return now_playing->config.up_next != NULL ? screen_action_push(now_playing->config.up_next)
                                                    : screen_action_none();
     case NOW_PLAYING_EQUALIZER:
-        return now_playing->config.equalizer != NULL
-                   ? screen_action_push(now_playing->config.equalizer)
+        return now_playing->config.open_equalizer != NULL
+                   ? now_playing->config.open_equalizer(now_playing->config.equalizer)
                    : screen_action_none();
     case NOW_PLAYING_HOME:
         now_playing->scrubbing = false;

@@ -2,6 +2,7 @@ add_library(echo_app STATIC
     app.c
     card_files.c
     clock_store.c
+    cold_screens.c
     app_screens.c
     bluetooth_link.c
     bluetooth_store.c
@@ -46,6 +47,9 @@ add_library(echo_app STATIC
 target_include_directories(echo_app PUBLIC include PRIVATE .)
 if(CMAKE_CROSSCOMPILING)
     target_compile_definitions(echo_app PRIVATE ECHO_RESIDENT_TABLES ECHO_EQ_FILES_HIDDEN)
+endif()
+if(ECHO_RELEASE)
+    target_compile_definitions(echo_app PRIVATE ECHO_RELEASE_DIAGNOSTICS)
 endif()
 target_link_libraries(echo_app
     PUBLIC echo_core echo_gfx echo_ui echo_fonts echo_library echo_playback echo_settings echo_sound echo_hal

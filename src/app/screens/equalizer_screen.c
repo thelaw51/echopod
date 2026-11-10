@@ -638,7 +638,12 @@ ScreenAction equalizer_screen_open(void *context)
 const char *equalizer_screen_summary(const void *context)
 {
     const EqualizerScreen *equalizer = context;
-    const EqualizerChoice *choice = choice_of(&equalizer->config);
+    return equalizer_screen_config_summary(&equalizer->config);
+}
+
+const char *equalizer_screen_config_summary(const EqualizerConfig *config)
+{
+    const EqualizerChoice *choice = choice_of(config);
     if (choice->preset != EQUALIZER_PRESET_FILE) {
         return equalizer_screen_preset_name(choice->preset);
     }

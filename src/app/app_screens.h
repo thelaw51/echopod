@@ -3,6 +3,7 @@
 #include <stdbool.h>
 
 #include "browse_screen.h"
+#include "cold_screens.h"
 #include "core/power_policy.h"
 #include "cover_cache.h"
 #include "diagnostics_values.h"
@@ -12,10 +13,7 @@
 #include "library_store.h"
 #include "loved_tracks.h"
 #include "player.h"
-#include "screens/bluetooth_screen.h"
 #include "screens/cover_flow_screen.h"
-#include "screens/date_time_screen.h"
-#include "screens/equalizer_screen.h"
 #include "screens/now_playing_screen.h"
 #include "screens/test_pattern_screen.h"
 #include "screens/up_next_screen.h"
@@ -31,7 +29,11 @@ enum {
     HOME_ITEM_COUNT = 6,
     SHELF_COUNT = 2,
     MUSIC_ITEM_COUNT = 9,
+#ifdef ECHO_RELEASE_DIAGNOSTICS
+    DIAGNOSTICS_ITEM_COUNT = 17,
+#else
     DIAGNOSTICS_ITEM_COUNT = 23,
+#endif
     START_PATH_CAPACITY = 2
 };
 
@@ -78,9 +80,7 @@ typedef struct AppScreens {
     BrowseEntry browse_entries[MUSIC_ITEM_COUNT];
     BrowseEntry shelf_entries[SHELF_COUNT];
     TestPatternScreen test_pattern;
-    BluetoothScreen bluetooth;
-    EqualizerScreen equalizer;
-    DateTimeScreen date_time;
+    ColdScreens cold;
     FoldersScreen folders;
     ClockOption clock;
     Core1Option core1;
@@ -109,6 +109,7 @@ typedef struct AppScreensContext {
     BluetoothLink *bluetooth;
     EqualizerStore *equalizer;
     ClockStore *clock;
+    const ScreenStack *stack;
 } AppScreensContext;
 
 Screen *app_screens_init(AppScreens *screens, AppScreensContext context);

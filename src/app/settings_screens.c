@@ -485,9 +485,9 @@ typedef struct SettingsGroupRows {
 } SettingsGroupRows;
 
 ECHO_RESIDENT static const SettingsLink LINKS[ROW_GROUP - ROW_BLUETOOTH] = {
-    {STR_BT_TITLE, bluetooth_screen_open, bluetooth_screen_summary},
-    {STR_SETTINGS_EQUALIZER, equalizer_screen_open, equalizer_screen_summary},
-    {STR_SETTINGS_DATE_TIME, date_time_screen_open, date_time_screen_summary},
+    {STR_BT_TITLE, cold_screens_open, cold_screens_summary},
+    {STR_SETTINGS_EQUALIZER, cold_screens_open, cold_screens_summary},
+    {STR_SETTINGS_DATE_TIME, cold_screens_open, cold_screens_summary},
     {STR_SETTINGS_MUSIC_FOLDERS, folders_screen_open, folders_screen_summary},
     {STR_SETTINGS_RESCAN, request_rescan, NULL},
 };

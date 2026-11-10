@@ -2,12 +2,10 @@
 
 #include <stdint.h>
 
+#include "cold_screens.h"
 #include "core/i18n.h"
 #include "core/power_policy.h"
 #include "player.h"
-#include "screens/bluetooth_screen.h"
-#include "screens/date_time_screen.h"
-#include "screens/equalizer_screen.h"
 #include "screens/folders_screen.h"
 #include "settings_store.h"
 #include "ui/choice_screen.h"
@@ -36,9 +34,9 @@ typedef struct SettingsContext {
     PowerPolicy *power;
     Toast *toast;
     bool *rescan_requested;
-    BluetoothScreen *bluetooth;
-    EqualizerScreen *equalizer;
-    DateTimeScreen *date_time;
+    ColdScreenEntry *bluetooth;
+    ColdScreenEntry *equalizer;
+    ColdScreenEntry *date_time;
     FoldersScreen *folders;
     int sleep_option;
 } SettingsContext;

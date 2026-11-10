@@ -126,11 +126,12 @@ void diagnostics_menu_build(AppScreens *screens, AppOptions *options, const Them
     items[count++] = value_item(STR_DIAG_LAST_START, diagnostics_row_start);
     items[count++] = value_item(STR_DIAG_LAST_STEP, diagnostics_row_last_step);
     items[count++] = value_item(STR_DIAG_LAST_BATTERY, diagnostics_row_last_battery);
-    items[count++] = (MenuItem){.label = i18n_text(STR_BT_TITLE),
-                                .select = bluetooth_screen_open_details,
-                                .context = &screens->bluetooth,
-                                .value = NULL,
-                                .opens = true};
+    items[count++] =
+        (MenuItem){.label = i18n_text(STR_BT_TITLE),
+                   .select = cold_screens_open,
+                   .context = cold_screens_entry(&screens->cold, COLD_ENTRY_BLUETOOTH_DETAILS),
+                   .value = NULL,
+                   .opens = true};
     items[count++] = action_item(STR_DIAG_POWER_TAPS, toggle_power_taps, options, power_taps_value);
     items[count++] = value_item(STR_DIAG_JACK_SINGLE_ENDED, diagnostics_row_jack_single_ended);
     items[count++] = value_item(STR_DIAG_JACK_BALANCED, diagnostics_row_jack_balanced);

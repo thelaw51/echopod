@@ -440,12 +440,7 @@ static bool opens_now_playing(KeyEvent event)
 
 static bool settings_open(void)
 {
-    for (int index = 0; index < app.stack.depth; index++) {
-        if (app.stack.screens[index] == &app.screens.settings.menu.screen) {
-            return true;
-        }
-    }
-    return false;
+    return screen_stack_holds(&app.stack, &app.screens.settings.menu.screen);
 }
 
 static bool opens_settings(KeyEvent event)
@@ -873,6 +868,7 @@ static void start_screens(uint32_t now_ms)
         .bluetooth = &app.bluetooth,
         .equalizer = &app.equalizer,
         .clock = &app.clock,
+        .stack = &app.stack,
     };
     Screen *root = app_screens_init(&app.screens, context);
     screen_stack_init(&app.stack, root, now_ms);
@@ -1217,11 +1213,16 @@ static void clock_prompt_choose(void *context, int index)
     state->open_date_time = index == 0;
 }
 
-static void push_screen(Screen *screen, uint32_t now_ms)
+static void apply_screen_action(ScreenAction action, uint32_t now_ms)
 {
-    if (screen_stack_apply(&app.stack, screen_action_push(screen), now_ms)) {
+    if (screen_stack_apply(&app.stack, action, now_ms)) {
         use_screen_key_behaviors();
     }
+}
+
+static void push_screen(Screen *screen, uint32_t now_ms)
+{
+    apply_screen_action(screen_action_push(screen), now_ms);
 }
 
 static void ask_for_the_clock(uint32_t now_ms)
@@ -1247,7 +1248,8 @@ static void follow_clock_prompt(uint32_t now_ms)
     }
     if (app.open_date_time) {
         app.open_date_time = false;
-        push_screen(&app.screens.date_time.screen, now_ms);
+        apply_screen_action(
+            cold_screens_open(cold_screens_entry(&app.screens.cold, COLD_ENTRY_DATE_TIME)), now_ms);
     }
 }
 
