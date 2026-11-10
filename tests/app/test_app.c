@@ -47,7 +47,8 @@ enum {
     SETTINGS_EQUALIZER_INDEX = 3,
     SETTINGS_SLEEP_INDEX = 4,
     SETTINGS_FIRST_GROUP_INDEX = 5,
-    SOUND_GAIN_ROW = 0,
+    SOUND_REPLAY_GAIN_ROW = 0,
+    SOUND_GAIN_ROW = 1,
     DISPLAY_THEME_ROW = 0,
     DISPLAY_BRIGHTNESS_ROW = 3,
     DISPLAY_TIMEOUT_ROW = 4,
@@ -614,6 +615,112 @@ static void bluetooth_and_the_equalizer_take_turns_from_settings(void)
     tap(KEY_PLAY);
     CHECK(title_is("Equalizer"));
     CHECK(app_toast_text() == NULL);
+}
+
+typedef struct TaggedFlac {
+    uint8_t bytes[160];
+    uint32_t size;
+} TaggedFlac;
+
+static void put_le32_at(uint8_t *at, uint32_t value)
+{
+    for (int index = 0; index < 4; index++) {
+        at[index] = (uint8_t)(value >> (8 * index));
+    }
+}
+
+static void tag_flac(TaggedFlac *flac, const char *const *fields, uint32_t count)
+{
+    uint8_t *bytes = flac->bytes;
+    memcpy(bytes, "fLaC", 4);
+    uint32_t at = 8;
+    put_le32_at(bytes + at, 0);
+    at += 4;
+    put_le32_at(bytes + at, count);
+    at += 4;
+    for (uint32_t index = 0; index < count; index++) {
+        uint32_t length = (uint32_t)strlen(fields[index]);
+        put_le32_at(bytes + at, length);
+        memcpy(bytes + at + 4, fields[index], length);
+        at += 4 + length;
+    }
+    uint32_t body = at - 8;
+    bytes[4] = 0x80 | 4;
+    bytes[5] = (uint8_t)(body >> 16);
+    bytes[6] = (uint8_t)(body >> 8);
+    bytes[7] = (uint8_t)body;
+    flac->size = at;
+}
+
+static void add_replay_gain_tags(void)
+{
+    static TaggedFlac hells_bells;
+    static TaggedFlac shoot_to_thrill;
+    static const char *const HELLS_BELLS[] = {"REPLAYGAIN_TRACK_GAIN=-6.00 dB",
+                                              "REPLAYGAIN_ALBUM_GAIN=-7.00 dB"};
+    static const char *const SHOOT_TO_THRILL[] = {"REPLAYGAIN_TRACK_GAIN=-3.00 dB"};
+    tag_flac(&hells_bells, HELLS_BELLS, 2);
+    tag_flac(&shoot_to_thrill, SHOOT_TO_THRILL, 1);
+    fake_hal_add_file(HELLS_BELLS_PATH, hells_bells.bytes, hells_bells.size);
+    fake_hal_add_file(SHOOT_TO_THRILL_PATH, shoot_to_thrill.bytes, shoot_to_thrill.size);
+}
+
+static void step_replay_gain_choice(void)
+{
+    tap(KEY_PLAY);
+    CHECK(title_is("ReplayGain"));
+    move_down(1);
+    tap(KEY_PLAY);
+    CHECK(title_is("Sound"));
+}
+
+static void replay_gain_is_off_until_chosen_and_then_follows_the_tags(void)
+{
+    start_app_with_library();
+    add_replay_gain_tags();
+    play_first_album_track();
+    CHECK(playing_path_is(HELLS_BELLS_PATH));
+    CHECK_EQUAL(0, fake_hal_audio_play_clip().gain_cdb);
+    CHECK_EQUAL(0, fake_hal_audio_queued_clip().gain_cdb);
+    tap(KEY_BACK);
+    hold(KEY_MENU);
+    CHECK(title_is("Settings"));
+    move_down(SETTINGS_FIRST_GROUP_INDEX + (int)SETTINGS_SOUND);
+    tap(KEY_PLAY);
+    move_down(SOUND_REPLAY_GAIN_ROW);
+    step_replay_gain_choice();
+    CHECK_EQUAL(-600, fake_hal_audio_play_clip().gain_cdb);
+    CHECK_EQUAL(-300, fake_hal_audio_queued_clip().gain_cdb);
+    step_replay_gain_choice();
+    CHECK_EQUAL(-700, fake_hal_audio_play_clip().gain_cdb);
+    CHECK_EQUAL(-300, fake_hal_audio_queued_clip().gain_cdb);
+    Settings settings;
+    CHECK(saved_settings(&settings));
+    CHECK_EQUAL(REPLAY_GAIN_ALBUM, settings.options[OPTION_REPLAY_GAIN]);
+}
+
+static void a_track_started_in_album_mode_without_an_album_gain_uses_its_track_gain(void)
+{
+    replay_gain_is_off_until_chosen_and_then_follows_the_tags();
+    tap(KEY_MENU);
+    CHECK(title_is("Now Playing"));
+    hold(KEY_VOLUME_UP);
+    CHECK(playing_path_is(SHOOT_TO_THRILL_PATH));
+    CHECK_EQUAL(-300, fake_hal_audio_play_clip().gain_cdb);
+}
+
+static void untagged_tracks_play_without_a_gain_in_every_mode(void)
+{
+    start_app_with_library();
+    play_first_album_track();
+    tap(KEY_BACK);
+    hold(KEY_MENU);
+    move_down(SETTINGS_FIRST_GROUP_INDEX + (int)SETTINGS_SOUND);
+    tap(KEY_PLAY);
+    move_down(SOUND_REPLAY_GAIN_ROW);
+    step_replay_gain_choice();
+    CHECK_EQUAL(0, fake_hal_audio_play_clip().gain_cdb);
+    CHECK_EQUAL(0, fake_hal_audio_queued_clip().gain_cdb);
 }
 
 static void gain_is_applied(void)
@@ -2400,6 +2507,18 @@ static void ignored_power_taps_leave_the_screen_on_but_a_hold_still_switches_off
     CHECK_EQUAL(1, fake_hal_power_off_count());
 }
 
+static void opening_the_display_group_leaves_the_diagnostics_menu_intact(void)
+{
+    start_app_with_library();
+    open_top_setting(SETTINGS_FIRST_GROUP_INDEX + (int)SETTINGS_DISPLAY);
+    CHECK(title_is("Display"));
+    hold_back();
+    CHECK(title_is("EchoPod"));
+    move_down(HOME_DIAGNOSTICS_INDEX - HOME_SETTINGS_INDEX);
+    tap(KEY_PLAY);
+    CHECK(title_is("Diagnostics"));
+}
+
 static void the_core_1_test_runs_once_per_press(void)
 {
     start_app();
@@ -3036,6 +3155,7 @@ int main(void)
         TEST_CASE(waking_while_paused_keeps_the_screen),
         TEST_CASE(the_cpu_clock_cycles_through_24_96_and_200_mhz),
         TEST_CASE(ignored_power_taps_leave_the_screen_on_but_a_hold_still_switches_off),
+        TEST_CASE(opening_the_display_group_leaves_the_diagnostics_menu_intact),
         TEST_CASE(the_core_1_test_runs_once_per_press),
         TEST_CASE(the_accelerator_test_runs_once_per_press),
         TEST_CASE(a_clock_that_does_not_lock_stays_where_it_was),
@@ -3055,6 +3175,9 @@ int main(void)
         TEST_CASE(bluetooth_waits_while_the_equalizer_from_now_playing_is_open),
         TEST_CASE(bluetooth_and_the_equalizer_take_turns_from_settings),
         TEST_CASE(gain_is_applied),
+        TEST_CASE(replay_gain_is_off_until_chosen_and_then_follows_the_tags),
+        TEST_CASE(a_track_started_in_album_mode_without_an_album_gain_uses_its_track_gain),
+        TEST_CASE(untagged_tracks_play_without_a_gain_in_every_mode),
         TEST_CASE(saved_settings_are_restored_at_start),
         TEST_CASE(the_orientation_setting_is_saved),
         TEST_CASE(a_swapping_portrait_turns_the_rocker_around_in_lists),

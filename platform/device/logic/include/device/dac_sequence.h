@@ -37,7 +37,8 @@ enum {
     DAC_RIGHT_ADDRESS = 0x66,
     DAC_VOLUME_LEVELS = 50,
     DAC_BALANCE_CENTER = 12,
-    DAC_VOLUME_MUTED = 0xFF
+    DAC_VOLUME_MUTED = 0xFF,
+    DAC_VOLUME_STEP_CDB = 50
 };
 
 void dac_power_pins(const DacBus *bus);
@@ -52,4 +53,5 @@ void dac_set_filter(const DacBus *bus, uint8_t filter);
 uint8_t dac_balance_volume(uint8_t volume, uint8_t balance, bool left_chip);
 void dac_set_gain(const DacBus *bus, bool high);
 uint8_t dac_volume_value(uint8_t level, DacCurve curve);
+uint8_t dac_volume_with_gain(uint8_t value, int16_t gain_cdb, DacCurve curve);
 uint8_t dac_ramp_next(uint8_t current, uint8_t target);

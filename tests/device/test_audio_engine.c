@@ -290,6 +290,32 @@ static void a_queued_track_follows_without_a_gap(void)
     CHECK_EQUAL(10u, status.position_ms);
 }
 
+static void the_status_gives_the_replay_gain_of_the_track_the_dma_plays(void)
+{
+    start_engine();
+    CHECK(audio_engine_play(&engine, "odd_blocks_16", (AudioClip){.gain_cdb = -500}, 0, 3));
+    audio_engine_queue_next(&engine, "lpc_16_44k_stereo", (AudioClip){.gain_cdb = 200}, 4);
+    pump_until_full(0);
+    CHECK_EQUAL(-500, audio_engine_status(&engine).gain_cdb);
+    audio_engine_set_track_gain(&engine, 3, -100);
+    audio_engine_set_track_gain(&engine, 4, 250);
+    CHECK_EQUAL(-100, audio_engine_status(&engine).gain_cdb);
+    audio_engine_pump(&engine, 3001 + 441);
+    CHECK_EQUAL(4u, audio_engine_status(&engine).token);
+    CHECK_EQUAL(250, audio_engine_status(&engine).gain_cdb);
+}
+
+static void a_replay_gain_set_before_the_next_track_opens_is_kept(void)
+{
+    start_engine();
+    CHECK(audio_engine_play(&engine, "odd_blocks_16", WHOLE, 0, 3));
+    audio_engine_queue_next(&engine, "lpc_16_44k_stereo", WHOLE, 4);
+    audio_engine_set_track_gain(&engine, 4, -300);
+    pump_until_full(0);
+    audio_engine_pump(&engine, 3001 + 441);
+    CHECK_EQUAL(-300, audio_engine_status(&engine).gain_cdb);
+}
+
 static void a_clip_plays_from_its_start_to_its_end(void)
 {
     start_engine();
@@ -748,6 +774,8 @@ int main(void)
 {
     static const TestCase cases[] = {
         TEST_CASE(the_current_path_is_the_track_being_played),
+        TEST_CASE(the_status_gives_the_replay_gain_of_the_track_the_dma_plays),
+        TEST_CASE(a_replay_gain_set_before_the_next_track_opens_is_kept),
         TEST_CASE(a_clip_plays_from_its_start_to_its_end),
         TEST_CASE(a_clip_starts_part_way_and_seeks_within_itself),
         TEST_CASE(the_next_clip_of_the_same_file_continues_without_reopening),

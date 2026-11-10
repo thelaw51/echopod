@@ -182,7 +182,7 @@ At the top of an artist's, album artist's or genre's album list, **Play all** pl
 
 Choose Settings on Home, or hold ≡ anywhere except on Now Playing. The top of the list holds the settings you change most: **Shuffle**, **Repeat**, **Bluetooth** (see Bluetooth headphones), **Equalizer** (see Equalizer) and **Sleep timer**. The rest are in five groups: ▶ opens a group, and Back goes back to Settings. Each row shows its current value, and a change applies as soon as you pick it.
 
-- **Sound:** **Gain** (Low or High), **Output** (Auto, 3.5 mm or 4.4 mm), **Filter**, **Balance**, and **Bluetooth level**, which makes Bluetooth headphones louder (see Bluetooth headphones).
+- **Sound:** **ReplayGain** (Off, Track or Album; see ReplayGain), **Gain** (Low or High), **Output** (Auto, 3.5 mm or 4.4 mm), **Filter**, **Balance**, and **Bluetooth level**, which makes Bluetooth headphones louder (see Bluetooth headphones).
 - **Display:** **Theme** switches between Dark and Light (light menus, lists and Now Playing with dark text; Cover Flow and the cover panel on Home stay dark, and the accent color works in both). **Accent color** and **Highlight** (gradient or flat) change the selection bar. **Brightness**, **Screen timeout**, **Orientation** (see Portrait mode). **Animations** makes screen slides and Cover Flow scrolling Slower (1.5× as long) or Faster (0.6×). **Battery percent** hides the number next to the battery. **Portrait status bar** → Large makes the status bar's icons and text bigger when the screen is in portrait (it has no effect in landscape). **Clock** shows the time in the status bar, and **Time format** picks 24-hour or 12-hour (see Clock).
 - **Library:** **Music folders** chooses which top-level folders are in the library (see Your music) and **Rescan library** rebuilds it. **Start screen** picks what the player opens on: Main menu (Home), Now Playing, or one of the Music lists (Albums, Artists, Favorites, Playlists, Cover Flow, Album Artists, Genres, Folders or All Songs). **Cover Flow** shows 5 covers (the centre one and two each side) or 3 (one each side), and **Cover Flow order** sorts it by album artist or by album title. **Artist albums** → Cover Flow opens an artist, album artist or genre as a Cover Flow of just their albums. **Folders & playlists** → Cover Flow opens a playlist as a Cover Flow of its albums and a folder of folders as a Cover Flow of those folders (below). **Lyrics** shows or hides lyrics on Now Playing (see Lyrics). **Listen history** turns the log of played songs on or off (see Listen history and Last.fm).
 - **Buttons:** **Volume buttons** and **Swap volume buttons** (see Buttons). **Menu button** makes ≡ on Now Playing open Up Next (the default), skip to the next track, or change shuffle and repeat. With **Shuffle & repeat**, a tap of ≡ steps Shuffle through Off, Songs and Albums, and holding it steps Repeat through Off, One and All. The line under the track details shows the new setting, such as "Shuffle: Albums", for 1.5 seconds. In this mode ≡ no longer opens Up Next or the Equalizer from Now Playing; the Equalizer is still in Settings. **Power on** → Hold makes the player start only when Power is held for about a second; a shorter press switches it straight back off, so a tap in a pocket or bag doesn't turn it on. With a cable plugged in it always starts, and RST always starts it.
@@ -204,6 +204,22 @@ When a song has no `.lrc` file, Now Playing uses lyrics saved in the song's own 
 - **FLAC, Ogg Vorbis and Opus:** the `LYRICS` tag, otherwise `UNSYNCEDLYRICS`.
 
 Tag lyrics that contain `[mm:ss.xx]` times scroll with the song just like a `.lrc` file. A `.lrc` file always wins over the tags. The same 3 KB and 160-line limits apply, and the player reads at most 64 KB of a lyrics tag.
+
+## ReplayGain
+
+**Settings → Sound → ReplayGain** evens out loudness between songs using the ReplayGain values your music tagger (foobar2000, MusicBrainz Picard, beets, mp3gain…) saved in the files. It's **Off** until you choose:
+
+- **Track:** each song plays at its own track gain, so every song sounds about as loud as the next. Best for shuffle and playlists.
+- **Album:** each song plays at its album's gain, so an album keeps its quiet and loud songs as the artist meant. A song without an album gain uses its track gain.
+
+The player reads the gain from the song when it starts (or is lined up to follow the current one), from:
+
+- **MP3:** `TXXX` frames named `REPLAYGAIN_TRACK_GAIN` and `REPLAYGAIN_ALBUM_GAIN`, in ID3v2.2, 2.3 or 2.4. APE tags at the end of an MP3 aren't read.
+- **FLAC and Ogg Vorbis:** the `REPLAYGAIN_TRACK_GAIN` and `REPLAYGAIN_ALBUM_GAIN` tags.
+- **Opus:** `R128_TRACK_GAIN` and `R128_ALBUM_GAIN`, raised by 5 dB to the same loudness as ReplayGain, plus the gain in the file's own header; otherwise the `REPLAYGAIN_` tags.
+- **M4A (AAC and ALAC):** the iTunes `replaygain_track_gain` and `replaygain_album_gain` tags. iTunes' own Sound Check (`iTunNORM`) isn't read.
+
+Songs without a gain, and WAV and the formats that don't play, play as before. The gain moves the player's volume in half-decibel steps, so the music itself isn't changed; a song that asks to be louder is raised, but never above what the top volume step gives, so the player never gets louder than it could before. Near the top of the volume range a loud-mastered song is turned down, but a quiet one may not be turned up all the way. When a song follows another without a gap and the two have different gains, the change lands a few milliseconds into the new song. Changing the setting applies to the song that's playing straight away. ReplayGain isn't used in USB DAC mode.
 
 ## Clock
 

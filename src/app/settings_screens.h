@@ -23,10 +23,22 @@ typedef enum SettingsGroup {
 } SettingsGroup;
 
 enum {
-    SETTINGS_CHOICE_COUNT = 34,
+    SETTINGS_CHOICE_COUNT = 35,
     SETTINGS_TOP_COUNT = 5 + SETTINGS_GROUP_COUNT,
-    SETTINGS_GROUP_ROWS_MAX = 10
+    SETTINGS_SOUND_ROWS = 6,
+    SETTINGS_DISPLAY_ROWS = 11,
+    SETTINGS_LIBRARY_ROWS = 9,
+    SETTINGS_BUTTONS_ROWS = 4,
+    SETTINGS_SYSTEM_ROWS = 4,
+    SETTINGS_GROUP_ROWS_MAX = 11
 };
+
+_Static_assert(SETTINGS_SOUND_ROWS <= SETTINGS_GROUP_ROWS_MAX &&
+                   SETTINGS_DISPLAY_ROWS <= SETTINGS_GROUP_ROWS_MAX &&
+                   SETTINGS_LIBRARY_ROWS <= SETTINGS_GROUP_ROWS_MAX &&
+                   SETTINGS_BUTTONS_ROWS <= SETTINGS_GROUP_ROWS_MAX &&
+                   SETTINGS_SYSTEM_ROWS <= SETTINGS_GROUP_ROWS_MAX,
+               "every Settings group must fit the rows array");
 
 typedef struct SettingsContext {
     SettingsStore *store;

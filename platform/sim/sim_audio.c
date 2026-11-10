@@ -19,12 +19,14 @@ enum {
 };
 
 static const float DECIBELS_PER_FACTOR_OF_TEN = 20.0f;
+static const float HUNDREDTHS_PER_DECIBEL = 100.0f;
 static const float SAMPLE_SCALE = 8388607.0f;
 
 typedef struct SimTrack {
     SimDecoder decoder;
     uint64_t base_frame;
     uint32_t token;
+    float replay_gain;
     bool open;
 } SimTrack;
 
@@ -81,12 +83,18 @@ static void close_track(SimTrack *track)
 
 static uint64_t frames_for(uint32_t milliseconds, uint32_t rate);
 
+static float replay_gain_factor(int16_t gain_cdb)
+{
+    return powf(10.0f, (float)gain_cdb / (HUNDREDTHS_PER_DECIBEL * DECIBELS_PER_FACTOR_OF_TEN));
+}
+
 static bool open_track(SimTrack *track, const char *path, HalAudioClip clip, uint32_t token)
 {
     char host_path[HOST_PATH_CAPACITY];
     close_track(track);
     track->token = token;
     track->base_frame = 0;
+    track->replay_gain = replay_gain_factor(clip.gain_cdb);
     track->open = sim_storage_host_path(path, host_path, sizeof host_path) &&
                   sim_decoder_open(&track->decoder, host_path);
     if (!track->open) {
@@ -173,8 +181,10 @@ static bool decode_chunk(void)
         return switch_to_next();
     }
     equalize_chunk(frames, track->decoder.sample_rate);
+    float gain = audio.gain * track->replay_gain;
+    gain = gain > 1.0f ? 1.0f : gain;
     for (uint64_t sample = 0; sample < frames * STEREO; sample++) {
-        chunk[sample] *= audio.gain;
+        chunk[sample] *= gain;
     }
     SDL_AudioStreamPut(audio.stream, chunk, (int)(frames * BYTES_PER_FRAME));
     return true;
@@ -293,6 +303,17 @@ void hal_audio_queue_next(const char *path, HalAudioClip clip, uint32_t token)
     close_track(next_track());
     if (path != NULL) {
         open_track(next_track(), path, clip, token);
+    }
+    unlock();
+}
+
+void hal_audio_set_track_gain(uint32_t token, int16_t gain_cdb)
+{
+    lock();
+    for (int slot = 0; slot < SLOT_COUNT; slot++) {
+        if (audio.slots[slot].open && audio.slots[slot].token == token) {
+            audio.slots[slot].replay_gain = replay_gain_factor(gain_cdb);
+        }
     }
     unlock();
 }

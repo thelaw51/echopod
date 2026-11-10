@@ -209,6 +209,18 @@ void audio_engine_queue_next(AudioEngine *engine, const char *path, AudioClip cl
     }
 }
 
+void audio_engine_set_track_gain(AudioEngine *engine, uint32_t token, int16_t gain_cdb)
+{
+    for (int index = 0; index < engine->segment_count; index++) {
+        if (engine->segments[index].token == token) {
+            engine->segments[index].clip.gain_cdb = gain_cdb;
+        }
+    }
+    if (engine->next_token == token) {
+        engine->next_clip.gain_cdb = gain_cdb;
+    }
+}
+
 bool audio_engine_seek(AudioEngine *engine, uint32_t position_ms)
 {
     if (engine->segment_count == 0) {
@@ -657,6 +669,7 @@ AudioEngineStatus audio_engine_status(const AudioEngine *engine)
                                .token = segment->token,
                                .position_ms = position,
                                .failed = engine->failed,
+                               .gain_cdb = segment->clip.gain_cdb,
                                .track = segment->track};
 }
 

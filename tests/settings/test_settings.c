@@ -603,6 +603,25 @@ static void a_file_from_before_the_time_format_keeps_the_24_hour_clock(void)
     CHECK_EQUAL(TIME_FORMAT_24_HOUR, settings_defaults().options[OPTION_TIME_FORMAT]);
 }
 
+static void replay_gain_is_saved_and_a_file_from_before_it_plays_without_one(void)
+{
+    Settings settings = custom_settings();
+    settings.options[OPTION_REPLAY_GAIN] = REPLAY_GAIN_ALBUM;
+    uint8_t bytes[SETTINGS_FILE_SIZE];
+    settings_encode(&settings, bytes);
+    Settings decoded;
+    CHECK(settings_decode(bytes, sizeof bytes, &decoded));
+    CHECK_EQUAL(REPLAY_GAIN_ALBUM, decoded.options[OPTION_REPLAY_GAIN]);
+    bytes[OPTIONS_FIELD + OPTION_REPLAY_GAIN] = 0;
+    put_checksum(bytes, OPTIONS_CHECKSUM_FIELD);
+    CHECK(settings_decode(bytes, sizeof bytes, &decoded));
+    CHECK_EQUAL(REPLAY_GAIN_OFF, decoded.options[OPTION_REPLAY_GAIN]);
+    CHECK_EQUAL(REPLAY_GAIN_OFF, settings_defaults().options[OPTION_REPLAY_GAIN]);
+    bytes[OPTIONS_FIELD + OPTION_REPLAY_GAIN] = REPLAY_GAIN_MODE_COUNT;
+    put_checksum(bytes, OPTIONS_CHECKSUM_FIELD);
+    CHECK(!settings_decode(bytes, sizeof bytes, &decoded));
+}
+
 static void an_unknown_time_format_is_rejected(void)
 {
     Settings settings = custom_settings();
@@ -629,6 +648,7 @@ int main(void)
         TEST_CASE(a_new_option_out_of_range_is_rejected),
         TEST_CASE(a_file_from_before_the_time_format_keeps_the_24_hour_clock),
         TEST_CASE(an_unknown_time_format_is_rejected),
+        TEST_CASE(replay_gain_is_saved_and_a_file_from_before_it_plays_without_one),
         TEST_CASE(an_option_out_of_range_is_rejected),
         TEST_CASE(a_version_7_file_loads_with_the_options_off),
         TEST_CASE(a_24_byte_file_from_0_9_1_still_loads),

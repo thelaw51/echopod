@@ -625,6 +625,16 @@ void hal_audio_queue_next(const char *path, HalAudioClip clip, uint32_t token)
     }
 }
 
+void hal_audio_set_track_gain(uint32_t token, int16_t gain_cdb)
+{
+    if (token == fake.audio.status.token) {
+        fake.audio.play_clip.gain_cdb = gain_cdb;
+    }
+    if (fake.audio.has_queued && token == fake.audio.queued_token) {
+        fake.audio.queued_clip.gain_cdb = gain_cdb;
+    }
+}
+
 void hal_audio_pause(void)
 {
     fake.audio.status.state = HAL_AUDIO_PAUSED;

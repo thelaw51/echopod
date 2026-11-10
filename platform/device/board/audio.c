@@ -104,6 +104,7 @@ static uint32_t stopped_since_ms;
 static bool tone_active;
 static char last_path[AUDIO_ENGINE_PATH_CAPACITY];
 static uint8_t volume_level;
+static int16_t replay_gain_cdb;
 static uint8_t stream_hardware_value;
 static void (*stream_service)(void);
 static bool volume_set;
@@ -598,7 +599,7 @@ static void follow_queue(void)
 
 static AudioClip engine_clip(HalAudioClip clip)
 {
-    return (AudioClip){.start_ms = clip.start_ms, .end_ms = clip.end_ms};
+    return (AudioClip){.start_ms = clip.start_ms, .end_ms = clip.end_ms, .gain_cdb = clip.gain_cdb};
 }
 
 bool hal_audio_play(const char *path, HalAudioClip clip, uint32_t start_ms, uint32_t token)
@@ -609,6 +610,7 @@ bool hal_audio_play(const char *path, HalAudioClip clip, uint32_t start_ms, uint
     stop_tone();
     stop_transfer();
     choose_clock(path);
+    replay_gain_cdb = clip.gain_cdb;
     if (!audio_engine_play(&engine, path, engine_clip(clip), start_ms, token)) {
         return false;
     }
@@ -655,7 +657,9 @@ static void start_deferred(void)
     }
     deferred = false;
     hal_audio_play(queued_path,
-                   (HalAudioClip){.start_ms = queued_clip.start_ms, .end_ms = queued_clip.end_ms},
+                   (HalAudioClip){.start_ms = queued_clip.start_ms,
+                                  .end_ms = queued_clip.end_ms,
+                                  .gain_cdb = queued_clip.gain_cdb},
                    0, queued_token);
 }
 
@@ -739,7 +743,8 @@ static uint8_t hardware_volume_value(void)
     if (stream_service != NULL) {
         return stream_hardware_value;
     }
-    return dac_volume_value(volume_level, output_curve());
+    DacCurve curve = output_curve();
+    return dac_volume_with_gain(dac_volume_value(volume_level, curve), replay_gain_cdb, curve);
 }
 
 static void apply_volume(void)
@@ -754,6 +759,21 @@ void hal_audio_set_volume(uint8_t level)
     volume_level = level;
     volume_set = true;
     apply_volume();
+}
+
+void hal_audio_set_track_gain(uint32_t token, int16_t gain_cdb)
+{
+    ensure_engine();
+    audio_engine_set_track_gain(&engine, token, gain_cdb);
+}
+
+static void follow_replay_gain(void)
+{
+    int16_t gain_cdb = audio_engine_status(&engine).gain_cdb;
+    if (gain_cdb != replay_gain_cdb) {
+        replay_gain_cdb = gain_cdb;
+        apply_volume();
+    }
 }
 
 void hal_audio_set_gain(HalAudioGain gain)
@@ -961,6 +981,7 @@ void hal_audio_service(void)
     }
     update_consumed();
     pump(consumed);
+    follow_replay_gain();
     start_deferred();
     change_rate();
     shut_down_when_idle();

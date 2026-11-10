@@ -9,6 +9,7 @@
 #include "library/library_browse.h"
 #include "playback/play_queue.h"
 #include "playback/up_next.h"
+#include "settings/settings.h"
 
 enum {
     PLAYER_DEFAULT_VOLUME = 12,
@@ -90,6 +91,7 @@ typedef struct Player {
     HalAudioRefusal refusal;
     bool spoken;
     PlayerResume resume;
+    ReplayGainMode replay_gain;
 } Player;
 
 extern const char PLAYER_RESUME_PATH[];
@@ -106,6 +108,7 @@ void player_seek(Player *player, uint32_t position_ms);
 void player_change_volume(Player *player, int delta);
 void player_set_shuffle(Player *player, ShuffleMode shuffle, uint32_t seed);
 void player_set_repeat(Player *player, RepeatMode repeat);
+void player_set_replay_gain(Player *player, ReplayGainMode mode);
 PlayerUpNextResult player_play_next(Player *player, uint16_t track);
 PlayerUpNextResult player_add_to_up_next(Player *player, uint16_t track);
 bool player_jump_to_up_next(Player *player, uint16_t index);

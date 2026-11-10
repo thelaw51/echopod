@@ -70,6 +70,7 @@ typedef struct HalAudioFormat {
 typedef struct HalAudioClip {
     uint32_t start_ms;
     uint32_t end_ms;
+    int16_t gain_cdb;
 } HalAudioClip;
 
 typedef struct HalAudioStatus {
@@ -130,6 +131,7 @@ typedef struct HalJackPins {
 
 bool hal_audio_play(const char *path, HalAudioClip clip, uint32_t start_ms, uint32_t token);
 void hal_audio_queue_next(const char *path, HalAudioClip clip, uint32_t token);
+void hal_audio_set_track_gain(uint32_t token, int16_t gain_cdb);
 void hal_audio_pause(void);
 void hal_audio_resume(void);
 void hal_audio_seek(uint32_t position_ms);
