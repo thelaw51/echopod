@@ -67,7 +67,7 @@ typedef struct FakeFile {
 } FakeFile;
 
 enum {
-    STORE_SLOTS = 4,
+    STORE_SLOTS = 6,
     STORE_CAPACITY = 512 * 1024
 };
 

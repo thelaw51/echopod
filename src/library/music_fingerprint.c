@@ -6,8 +6,9 @@
 
 #define SECOND_SEED (HASH_START ^ UINT32_C(0x5BD1E995))
 
-static const char *const LIBRARY_SUFFIXES[] = {".flac", ".ogg", ".opus", ".mp3", ".m4a", ".wav",
-                                               ".wma",  ".ape", ".dsf",  ".dff", ".m3u", ".m3u8"};
+static const char *const AUDIO_SUFFIXES[] = {".flac", ".ogg", ".opus", ".mp3", ".m4a",
+                                             ".wav",  ".wma", ".ape",  ".dsf", ".dff"};
+static const char *const PLAYLIST_SUFFIXES[] = {".m3u", ".m3u8"};
 static const char *const ART_STEMS[] = {"cover", "folder", "front", "albumart"};
 static const char *const ART_SUFFIXES[] = {".jpg", ".jpeg", ".png"};
 static const char SYSTEM_FOLDER[] = "System Volume Information";
@@ -65,6 +66,17 @@ static bool is_album_art(const char *name, uint32_t length)
     return false;
 }
 
+bool music_fingerprint_is_audio(const char *name)
+{
+    uint32_t length = text_length(name);
+    for (size_t index = 0; index < sizeof AUDIO_SUFFIXES / sizeof AUDIO_SUFFIXES[0]; index++) {
+        if (has_suffix(name, length, AUDIO_SUFFIXES[index])) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool music_fingerprint_counts(const char *name, bool directory)
 {
     uint32_t length = text_length(name);
@@ -76,12 +88,13 @@ bool music_fingerprint_counts(const char *name, bool directory)
         }
         return !system;
     }
-    for (size_t index = 0; index < sizeof LIBRARY_SUFFIXES / sizeof LIBRARY_SUFFIXES[0]; index++) {
-        if (has_suffix(name, length, LIBRARY_SUFFIXES[index])) {
+    for (size_t index = 0; index < sizeof PLAYLIST_SUFFIXES / sizeof PLAYLIST_SUFFIXES[0];
+         index++) {
+        if (has_suffix(name, length, PLAYLIST_SUFFIXES[index])) {
             return true;
         }
     }
-    return is_album_art(name, length);
+    return music_fingerprint_is_audio(name) || is_album_art(name, length);
 }
 
 static void mix(Walk *walk, const void *bytes, size_t length)
@@ -171,6 +184,9 @@ MusicFingerprint music_fingerprint(const FingerprintFiles *files, FingerprintWor
         }
         mix_entry(&walk, entry);
         if (!entry->directory) {
+            if (files->file_seen != NULL) {
+                files->file_seen(files->seen_context, work->path, entry);
+            }
             continue;
         }
         if (!enter(&walk, entry->name)) {

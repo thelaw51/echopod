@@ -22,6 +22,7 @@
 #include "settings/settings.h"
 #include "settings_screens.h"
 #include "settings_store.h"
+#include "smart_lists.h"
 #include "ui/menu_screen.h"
 #include "ui/message_screen.h"
 #include "ui/toast.h"
@@ -30,7 +31,7 @@
 enum {
     HOME_ITEM_COUNT = 6,
     SHELF_COUNT = 2,
-    MUSIC_ITEM_COUNT = 9,
+    MUSIC_ITEM_COUNT = 12,
     DIAGNOSTICS_ITEM_COUNT = 23,
     START_PATH_CAPACITY = 2
 };
@@ -101,6 +102,7 @@ typedef struct AppScreensContext {
     FavoritesStore *favorites;
     UserPlaylists *playlists;
     LovedTracks *loved;
+    SmartLists *smart;
     PowerPolicy *power;
     Toast *toast;
     CoverCache *covers;

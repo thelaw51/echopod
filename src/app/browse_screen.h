@@ -7,6 +7,7 @@
 #include "library/library_browse.h"
 #include "loved_tracks.h"
 #include "player.h"
+#include "smart_lists.h"
 #include "spoken_store.h"
 #include "ui/list_view.h"
 #include "ui/menu_screen.h"
@@ -74,6 +75,7 @@ typedef struct BrowsePoolConfig {
     FavoritesStore *favorites;
     UserPlaylists *playlists;
     LovedTracks *loved;
+    SmartLists *smart;
     Toast *toast;
     SpokenStore *spoken;
     const uint8_t *options;

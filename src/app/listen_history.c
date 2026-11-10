@@ -2,6 +2,8 @@
 
 #include "core/hash.h"
 #include "hal/storage.h"
+#include "library/user_playlist.h"
+#include "smart_store.h"
 
 const char LISTEN_HISTORY_PATH[] = "/.echo/history.bin";
 
@@ -75,13 +77,13 @@ static void locate(ListenHistory *history)
     history->located = slots > 0;
 }
 
-static void store(ListenHistory *history, HistoryRecord *record)
+static bool store(ListenHistory *history, HistoryRecord *record)
 {
     if (!history->located) {
         locate(history);
     }
     if (!history->located) {
-        return;
+        return false;
     }
     record->sequence = history->sequence;
     record->session = history->session;
@@ -91,9 +93,11 @@ static void store(ListenHistory *history, HistoryRecord *record)
     }
     listen_history_encode(record, history->slot);
     uint32_t offset = (record->sequence - 1) % history->slots * HISTORY_SLOT_BYTES;
-    if (hal_file_write_at(LISTEN_HISTORY_PATH, offset, history->slot, HISTORY_SLOT_BYTES)) {
-        history->sequence++;
+    if (!hal_file_write_at(LISTEN_HISTORY_PATH, offset, history->slot, HISTORY_SLOT_BYTES)) {
+        return false;
     }
+    history->sequence++;
+    return true;
 }
 
 static void clear_texts(uint8_t *slot)
@@ -135,6 +139,7 @@ static void begin(ListenHistory *history, const Library *library, const PlayerSt
                                       .duration_ms = status->duration_ms,
                                       .start_position_ms = status->position_ms};
     history->track = status->track;
+    history->keyed = known && user_playlist_track_key(library, status->track, &history->key);
     history->open = true;
 }
 
@@ -155,9 +160,18 @@ void listen_history_close(ListenHistory *history, uint32_t now_ms)
     history->open = false;
     history->record.end_ms = now_ms;
     history->record.end_position_ms = history->position_ms;
-    if (history->record.played_ms >= HISTORY_MIN_PLAY_MS) {
-        store(history, &history->record);
+    if (history->record.played_ms >= HISTORY_MIN_PLAY_MS && store(history, &history->record) &&
+        history->keyed &&
+        listen_history_listened(history->record.duration_ms, history->record.played_ms)) {
+        smart_store_note_play(history->key, history->track);
     }
+}
+
+bool listen_history_listened(uint32_t duration_ms, uint32_t played_ms)
+{
+    uint32_t half = duration_ms / 2;
+    uint32_t enough = half < HISTORY_ENOUGH_LISTENING_MS ? half : HISTORY_ENOUGH_LISTENING_MS;
+    return duration_ms > HISTORY_SHORTEST_LISTEN_MS && played_ms >= enough;
 }
 
 void listen_history_follow(ListenHistory *history, const Library *library,
@@ -182,5 +196,5 @@ void listen_history_note_computer(ListenHistory *history, uint32_t now_ms)
     listen_history_close(history, now_ms);
     clear_texts(history->slot);
     HistoryRecord record = {.kind = HISTORY_COMPUTER, .start_ms = now_ms, .end_ms = now_ms};
-    store(history, &record);
+    (void)store(history, &record);
 }

@@ -69,7 +69,7 @@ echo_add_unit_test(NAME test_equalizer
 echo_add_unit_test(NAME test_equalizer_file SOURCES sound/test_equalizer_file.c LIBRARIES echo_sound)
 echo_add_unit_test(NAME test_equalizer_text SOURCES sound/test_equalizer_text.c LIBRARIES echo_sound)
 
-foreach(library_test block_cache library library_browse favorites covers sort_key track_fields playlist_reader music_fingerprint music_folders user_playlist)
+foreach(library_test block_cache library library_browse favorites covers sort_key track_fields playlist_reader music_fingerprint music_folders user_playlist smart_list)
     echo_add_unit_test(NAME test_${library_test}
         SOURCES library/test_${library_test}.c
         LIBRARIES echo_library_fixtures
@@ -153,6 +153,11 @@ echo_add_unit_test(NAME test_player
 )
 echo_add_unit_test(NAME test_listen_history
     SOURCES app/test_listen_history.c app/fake_hal.c
+    LIBRARIES echo_app echo_library_fixtures
+    PRIVATE_INCLUDES ${PROJECT_SOURCE_DIR}/src/app
+)
+echo_add_unit_test(NAME test_smart_lists
+    SOURCES app/test_smart_lists.c app/fake_hal.c
     LIBRARIES echo_app echo_library_fixtures
     PRIVATE_INCLUDES ${PROJECT_SOURCE_DIR}/src/app
 )
@@ -351,6 +356,7 @@ set_tests_properties(test_fat_create PROPERTIES TIMEOUT 30 FIXTURES_SETUP create
 echo_add_unit_test(NAME test_scrobbler_card
     SOURCES device/test_scrobbler_card.c device/sparse_card.c
         ${PROJECT_SOURCE_DIR}/src/app/scrobbler_log.c ${PROJECT_SOURCE_DIR}/src/app/listen_history.c
+        ${PROJECT_SOURCE_DIR}/src/app/smart_store.c
     LIBRARIES echo_device_logic echo_library echo_playback echo_hal
     PRIVATE_INCLUDES ${PROJECT_SOURCE_DIR}/src/app
 )

@@ -18,7 +18,9 @@ enum {
     HISTORY_CHECK_AT = HISTORY_SLOT_BYTES - 4,
     HISTORY_NAME_BYTES = 160,
     HISTORY_MIN_PLAY_MS = 1000,
-    HISTORY_RESTART_MS = 3000
+    HISTORY_RESTART_MS = 3000,
+    HISTORY_SHORTEST_LISTEN_MS = 30000,
+    HISTORY_ENOUGH_LISTENING_MS = 240000
 };
 
 typedef enum HistoryKind {
@@ -45,7 +47,9 @@ typedef struct ListenHistory {
     bool open;
     bool playing;
     bool located;
+    bool keyed;
     uint16_t track;
+    uint32_t key;
     uint32_t position_ms;
     uint32_t last_ms;
     uint32_t sequence;
@@ -62,3 +66,4 @@ void listen_history_follow(ListenHistory *history, const Library *library,
                            const PlayerStatus *status, uint32_t now_ms);
 void listen_history_close(ListenHistory *history, uint32_t now_ms);
 void listen_history_note_computer(ListenHistory *history, uint32_t now_ms);
+bool listen_history_listened(uint32_t duration_ms, uint32_t played_ms);

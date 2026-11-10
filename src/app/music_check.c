@@ -6,6 +6,7 @@
 #include "folders_store.h"
 #include "hal/storage.h"
 #include "hal/system.h"
+#include "smart_store.h"
 
 const char MUSIC_CHECK_PATH[] = "/.echo/scan.bin";
 
@@ -53,12 +54,30 @@ static void close_dir(void *context, uint32_t level)
     hal_dir_close(&state->dirs[level]);
 }
 
+typedef struct AddedWalk {
+    SmartRank rank;
+    uint32_t order;
+} AddedWalk;
+
+static void file_seen(void *context, const char *folder, const FingerprintEntry *entry)
+{
+    AddedWalk *added = context;
+    added_files_offer(&added->rank, folder, entry->name, entry->modified, added->order++);
+}
+
 MusicFingerprint music_check_fingerprint(void)
 {
     MusicFolders skip;
+    SmartEntry entries[SMART_LIST_TRACKS];
+    AddedWalk added = {.order = 0};
+    smart_rank_init(&added.rank, entries, SMART_LIST_TRACKS);
     folders_store_load(&skip);
-    FingerprintFiles files = {open_dir, next_entry, close_dir, &walk, &skip};
-    return music_fingerprint(&files, &work);
+    FingerprintFiles files = {open_dir, next_entry, close_dir, &walk, &skip, file_seen, &added};
+    MusicFingerprint print = music_fingerprint(&files, &work);
+    if (print.complete) {
+        (void)smart_store_save_added(entries, added.rank.count);
+    }
+    return print;
 }
 
 static void put_word(uint8_t *bytes, uint32_t value)

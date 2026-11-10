@@ -378,7 +378,12 @@ static BrowseQuery playback_query(BrowseScreen *browse, BrowseQuery query)
         return loved_tracks_query(true);
     }
     UserPlaylists *playlists = browse->pool->config.playlists;
-    if (query.kind != BROWSE_TRACK_LIST || playlists == NULL) {
+    SmartLists *smart = browse->pool->config.smart;
+    if (smart != NULL && smart_lists_owns(query)) {
+        return smart_lists_pin(smart, query);
+    }
+    if (query.kind != BROWSE_TRACK_LIST || playlists == NULL ||
+        browse->list_slot == USER_PLAYLISTS_NO_SLOT) {
         return query;
     }
     user_playlists_pin(playlists, browse->list_slot);
@@ -922,6 +927,9 @@ Screen *browse_pool_open(BrowsePool *pool, int level, BrowseQuery query)
     if (browse->loved_list) {
         StringBuilder title = string_builder_make(browse->title, sizeof browse->title);
         string_builder_append(&title, i18n_text(STR_MENU_LOVED_TRACKS));
+    } else if (smart_lists_owns(query)) {
+        StringBuilder title = string_builder_make(browse->title, sizeof browse->title);
+        string_builder_append(&title, i18n_text(smart_lists_title(query)));
     } else if (query.kind == BROWSE_TRACK_LIST && pool->config.playlists != NULL) {
         browse->list_slot = (int)(query.subject & ~USER_PLAYLISTS_PINNED);
         playlist_name(pool, browse->list_slot, browse->title, sizeof browse->title);

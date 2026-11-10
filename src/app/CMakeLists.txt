@@ -26,6 +26,8 @@ add_library(echo_app STATIC
     scrobbler_log.c
     settings_screens.c
     settings_store.c
+    smart_lists.c
+    smart_store.c
     spoken_store.c
     update_record.c
     user_playlists.c

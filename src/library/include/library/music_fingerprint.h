@@ -24,6 +24,8 @@ typedef struct FingerprintFiles {
     void (*close_dir)(void *context, uint32_t level);
     void *context;
     const MusicFolders *skip;
+    void (*file_seen)(void *context, const char *folder, const FingerprintEntry *entry);
+    void *seen_context;
 } FingerprintFiles;
 
 typedef struct MusicFingerprint {
@@ -46,3 +48,4 @@ typedef struct FingerprintWork {
 MusicFingerprint music_fingerprint(const FingerprintFiles *files, FingerprintWork *work);
 bool music_fingerprints_match(MusicFingerprint left, MusicFingerprint right);
 bool music_fingerprint_counts(const char *name, bool directory);
+bool music_fingerprint_is_audio(const char *name);

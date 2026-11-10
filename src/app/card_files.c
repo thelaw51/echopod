@@ -19,6 +19,7 @@
 #include "music_check.h"
 #include "player.h"
 #include "settings_store.h"
+#include "smart_store.h"
 #include "spoken_store.h"
 #include "user_playlists.h"
 
@@ -46,7 +47,8 @@ static const CardFile CARD_FILES[] = {
     {BLUETOOTH_STORE_PATH, SMALL_FILE_BYTES},   {EQUALIZER_STORE_PATH, SMALL_FILE_BYTES},
     {LISTEN_HISTORY_PATH, HISTORY_FILE_BYTES},  {UPDATE_RECORD_PATH, SMALL_FILE_BYTES},
     {FOLDERS_STORE_PATH, SMALL_FILE_BYTES},     {USER_PLAYLISTS_PATH, USER_PLAYLIST_FILE_BYTES},
-    {LOVED_TRACKS_PATH, SMALL_FILE_BYTES},
+    {LOVED_TRACKS_PATH, SMALL_FILE_BYTES},      {PLAY_STATS_PATH, PLAY_STATS_FILE_BYTES},
+    {ADDED_FILES_PATH, SMALL_FILE_BYTES},
 };
 
 static uint32_t slots_for(uint32_t albums)

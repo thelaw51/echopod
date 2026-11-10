@@ -6,6 +6,7 @@ add_library(echo_library STATIC
     library_browse.c
     music_fingerprint.c
     music_folders.c
+    smart_list.c
     sort_initial.c
     spoken_path.c
     user_playlist.c

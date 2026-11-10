@@ -12,13 +12,15 @@
 typedef enum MusicSource {
     MUSIC_COVER_FLOW,
     MUSIC_LIBRARY,
-    MUSIC_FAVORITES
+    MUSIC_FAVORITES,
+    MUSIC_SMART
 } MusicSource;
 
 typedef struct MusicEntry {
     StringId label;
     MusicSource source;
     BrowseKind kind;
+    SmartKind smart;
 } MusicEntry;
 
 enum {
@@ -40,15 +42,18 @@ static const int8_t START_ENTRIES[START_SCREEN_COUNT] = {
 };
 
 static const MusicEntry MUSIC_ENTRIES[MUSIC_ITEM_COUNT] = {
-    {STR_MENU_COVER_FLOW, MUSIC_COVER_FLOW, BROWSE_ALBUMS},
-    {STR_MENU_ARTISTS, MUSIC_LIBRARY, BROWSE_ARTISTS},
-    {STR_MENU_ALBUM_ARTISTS, MUSIC_LIBRARY, BROWSE_ALBUM_ARTISTS},
-    {STR_MENU_ALBUMS, MUSIC_LIBRARY, BROWSE_ALBUMS},
-    {STR_MENU_GENRES, MUSIC_LIBRARY, BROWSE_GENRES},
-    {STR_MENU_FOLDERS, MUSIC_LIBRARY, BROWSE_FOLDER},
-    {STR_MENU_ALL_SONGS, MUSIC_LIBRARY, BROWSE_ALL_SONGS},
-    {STR_MENU_PLAYLISTS, MUSIC_LIBRARY, BROWSE_PLAYLISTS},
-    {STR_MENU_FAVORITES, MUSIC_FAVORITES, BROWSE_ALBUMS},
+    {STR_MENU_COVER_FLOW, MUSIC_COVER_FLOW, BROWSE_ALBUMS, SMART_KIND_COUNT},
+    {STR_MENU_ARTISTS, MUSIC_LIBRARY, BROWSE_ARTISTS, SMART_KIND_COUNT},
+    {STR_MENU_ALBUM_ARTISTS, MUSIC_LIBRARY, BROWSE_ALBUM_ARTISTS, SMART_KIND_COUNT},
+    {STR_MENU_ALBUMS, MUSIC_LIBRARY, BROWSE_ALBUMS, SMART_KIND_COUNT},
+    {STR_MENU_GENRES, MUSIC_LIBRARY, BROWSE_GENRES, SMART_KIND_COUNT},
+    {STR_MENU_FOLDERS, MUSIC_LIBRARY, BROWSE_FOLDER, SMART_KIND_COUNT},
+    {STR_MENU_ALL_SONGS, MUSIC_LIBRARY, BROWSE_ALL_SONGS, SMART_KIND_COUNT},
+    {STR_MENU_PLAYLISTS, MUSIC_LIBRARY, BROWSE_PLAYLISTS, SMART_KIND_COUNT},
+    {STR_MENU_FAVORITES, MUSIC_FAVORITES, BROWSE_ALBUMS, SMART_KIND_COUNT},
+    {STR_MENU_MOST_PLAYED, MUSIC_SMART, BROWSE_TRACK_LIST, SMART_MOST_PLAYED},
+    {STR_MENU_RECENTLY_PLAYED, MUSIC_SMART, BROWSE_TRACK_LIST, SMART_RECENTLY_PLAYED},
+    {STR_MENU_RECENTLY_ADDED, MUSIC_SMART, BROWSE_TRACK_LIST, SMART_RECENTLY_ADDED},
 };
 
 static bool player_has_track(const void *context)
@@ -108,7 +113,8 @@ static MenuItem music_item(AppScreens *screens, const LibraryStore *store, int i
         .pool = &screens->browse,
         .store = store,
         .unavailable = &screens->no_library.screen,
-        .query = browse_root_query(entry->kind),
+        .query = entry->source == MUSIC_SMART ? smart_lists_query(entry->smart, false)
+                                              : browse_root_query(entry->kind),
         .favorites = entry->source == MUSIC_FAVORITES,
         .flow = entry->source == MUSIC_COVER_FLOW || entry->kind == BROWSE_FOLDER
                     ? &screens->cover_flow
@@ -138,6 +144,7 @@ static void build_music(AppScreens *screens, AppScreensContext context)
         .favorites = context.favorites,
         .playlists = context.playlists,
         .loved = context.loved,
+        .smart = context.smart,
         .toast = context.toast,
         .spoken = context.spoken,
         .options = context.settings->settings.options,

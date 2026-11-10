@@ -13,8 +13,6 @@ enum {
     LINE_LIMIT = HISTORY_CHECK_AT - HISTORY_TEXT_AT + 40,
     OUT_BYTES = 3 * LINE_LIMIT + 1,
     TEXT_COUNT = 3,
-    SHORTEST_SCROBBLE_MS = 30000,
-    ENOUGH_LISTENING_MS = 240000,
     CONTINUE_SLACK_MS = 5000,
     MS_PER_SECOND = 1000,
     DECIMAL_BASE = 10
@@ -71,13 +69,6 @@ static bool continues(const uint8_t *earlier_slot, const HistoryRecord *earlier,
            __builtin_memcmp(earlier_slot + HISTORY_TEXT_AT, later_slot + HISTORY_TEXT_AT,
                             end - HISTORY_TEXT_AT) == 0 &&
            from >= CONTINUE_SLACK_MS && (from > to ? from - to : to - from) <= CONTINUE_SLACK_MS;
-}
-
-static bool listened(uint32_t duration_ms, uint32_t played_ms)
-{
-    uint32_t half = duration_ms / 2;
-    return duration_ms > SHORTEST_SCROBBLE_MS &&
-           played_ms >= (half < ENOUGH_LISTENING_MS ? half : ENOUGH_LISTENING_MS);
 }
 
 static void put_number(Export *export, uint32_t value)
@@ -259,7 +250,7 @@ static void run(Export *export, uint8_t *spare)
                 chain = (Chain){.start = (uint32_t)((offset + record.start_ms) / MS_PER_SECOND)};
             }
             chain.played_ms += record.played_ms;
-            if (!chain.done && listened(record.duration_ms, chain.played_ms)) {
+            if (!chain.done && listen_history_listened(record.duration_ms, chain.played_ms)) {
                 emit(export, reading, &record, chain.start, 'L');
                 chain.done = true;
             }

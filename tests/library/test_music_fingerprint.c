@@ -3,6 +3,7 @@
 
 #include "check.h"
 #include "library/music_fingerprint.h"
+#include "library/smart_list.h"
 #include "library/track_tags.h"
 
 enum {
@@ -76,7 +77,7 @@ static void close_dir(void *context, uint32_t level)
     state->open_dirs--;
 }
 
-static FingerprintFiles FILES = {open_dir, next_entry, close_dir, &tree, NULL};
+static FingerprintFiles FILES = {open_dir, next_entry, close_dir, &tree, NULL, NULL, NULL};
 
 static void add(const char *parent, const char *name, bool directory, uint32_t size,
                 uint32_t modified)
@@ -364,9 +365,50 @@ static void incomplete_fingerprints_never_match(void)
     CHECK(!music_fingerprints_match(broken, broken));
 }
 
+typedef struct SeenFiles {
+    SmartRank rank;
+    SmartEntry entries[SMART_LIST_TRACKS];
+    uint32_t order;
+    int calls;
+} SeenFiles;
+
+static void file_seen(void *context, const char *folder, const FingerprintEntry *entry)
+{
+    SeenFiles *seen = context;
+    seen->calls++;
+    added_files_offer(&seen->rank, folder, entry->name, entry->modified, seen->order++);
+}
+
+static SeenFiles walk_for_added(void)
+{
+    SeenFiles seen = {.order = 0, .calls = 0};
+    smart_rank_init(&seen.rank, seen.entries, SMART_LIST_TRACKS);
+    FingerprintFiles files = FILES;
+    files.file_seen = file_seen;
+    files.seen_context = &seen;
+    CHECK(music_fingerprint(&files, &work).complete);
+    return seen;
+}
+
+static void the_walk_hands_every_counted_file_to_the_added_list(void)
+{
+    music_card();
+    SeenFiles seen = walk_for_added();
+    CHECK_EQUAL(4, seen.calls);
+    CHECK_EQUAL(2, seen.rank.count);
+    CHECK_EQUAL(added_files_key("/AC DC/Back In Black", "02 - Shoot to Thrill.flac"),
+                seen.entries[0].key);
+    CHECK_EQUAL(added_files_key("/AC DC/Back In Black", "01 - Hells Bells.flac"),
+                seen.entries[1].key);
+    SeenFiles again = walk_for_added();
+    CHECK_EQUAL(seen.entries[0].key, again.entries[0].key);
+    CHECK_EQUAL(seen.entries[1].key, again.entries[1].key);
+}
+
 int main(void)
 {
     static const TestCase cases[] = {
+        TEST_CASE(the_walk_hands_every_counted_file_to_the_added_list),
         TEST_CASE(the_same_card_gives_the_same_fingerprint),
         TEST_CASE(the_test_card_keeps_its_stored_fingerprint),
         TEST_CASE(a_folder_that_cannot_be_opened_counts_as_empty),

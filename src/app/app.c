@@ -39,6 +39,7 @@
 #include "scrobbler_log.h"
 #include "settings/rocker.h"
 #include "settings_store.h"
+#include "smart_lists.h"
 #include "ui/choice_screen.h"
 #include "ui/fade.h"
 #include "ui/header.h"
@@ -133,6 +134,7 @@ typedef struct AppState {
     FavoritesStore favorites;
     UserPlaylists playlists;
     LovedTracks loved;
+    SmartLists smart;
     SpokenStore spoken;
     ListenHistory history;
     ClockStore clock;
@@ -823,6 +825,7 @@ static void start_playback(void)
     library_store_open(&app.library);
     user_playlists_load(&app.playlists, &app.library.library);
     loved_tracks_load(&app.loved, &app.library.library);
+    smart_lists_load(&app.smart, &app.library.library);
     player_init(&app.player, &app.library.library);
     settings_store_restore_playback(&app.settings, &app.player, hal_clock_microseconds());
     player_restore(&app.player);
@@ -863,6 +866,7 @@ static void start_screens(uint32_t now_ms)
         .favorites = &app.favorites,
         .playlists = &app.playlists,
         .loved = &app.loved,
+        .smart = &app.smart,
         .power = &app.power,
         .toast = &app.toast,
         .covers = &app.covers,
