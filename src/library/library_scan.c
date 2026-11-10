@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "library/cue_sheet.h"
 #include "library/playlist_reader.h"
 #include "library/track_fields.h"
 #include "library/track_tags.h"
@@ -25,6 +26,7 @@ typedef struct Level {
     uint32_t next;
     uint32_t path_length;
     bool partial;
+    bool has_cues;
 } Level;
 
 typedef struct ScanState {
@@ -45,6 +47,13 @@ typedef struct ScanState {
     char entry_text[PLAYLIST_ENTRY_CAPACITY];
     char playlist_name[SCAN_NAME_CAPACITY];
     char cutoff[SCAN_NAME_CAPACITY];
+    CueSheet cue;
+    CueSplit split;
+    CueTrack cue_next;
+    CueTrack cue_out;
+    BuilderTrack whole;
+    char untitled[16];
+    char cue_path[SCAN_PATH_CAPACITY + 2];
 } ScanState;
 
 typedef struct Listing {
@@ -157,7 +166,12 @@ static ScanResult index_listing(ScanState *state, uint32_t start, uint32_t count
     if (table > state->playlist_floor || (uint64_t)count * 8 > state->playlist_floor - table) {
         return SCAN_FOLDER_TOO_BIG;
     }
-    sorted_offsets(state, start, count);
+    uint32_t *offsets = sorted_offsets(state, start, count);
+    level->has_cues = false;
+    for (uint32_t index = 0; index < count && !level->has_cues; index++) {
+        level->has_cues = !entry_is_directory(state, offsets[index]) &&
+                          cue_sheet_is_name(entry_name(state, offsets[index]));
+    }
     state->listing_used = table + count * 4;
     level->first = table;
     level->count = count;
@@ -357,11 +371,184 @@ static ScanResult builder_result(BuilderResult result)
     return SCAN_WRITE_FAILED;
 }
 
+static char fold(char character)
+{
+    return character >= 'A' && character <= 'Z' ? (char)(character - 'A' + 'a') : character;
+}
+
+static bool same_folded(const char *left, uint32_t left_length, const char *right,
+                        uint32_t right_length)
+{
+    if (left_length != right_length) {
+        return false;
+    }
+    for (uint32_t index = 0; index < left_length; index++) {
+        if (fold(left[index]) != fold(right[index])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static uint32_t stem_length(const char *name, uint32_t length)
+{
+    for (uint32_t index = length; index > 1; index--) {
+        if (name[index - 1] == '.') {
+            return index - 1;
+        }
+    }
+    return length;
+}
+
+static const Level *current_level(const ScanState *state)
+{
+    return &state->levels[state->depth - 1];
+}
+
+static bool in_listing(const ScanState *state, const char *name, uint32_t length)
+{
+    const Level *level = current_level(state);
+    const uint32_t *offsets = (const uint32_t *)(const void *)(state->listing + level->first);
+    for (uint32_t index = 0; index < level->count; index++) {
+        const char *entry = entry_name(state, offsets[index]);
+        if (same_folded(entry, text_length(entry), name, length)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool cue_names_audio(void *context, const char *file)
+{
+    const ScanState *state = context;
+    const char *base = file;
+    for (const char *cursor = file; *cursor != '\0'; cursor++) {
+        base = *cursor == '/' || *cursor == '\\' ? cursor + 1 : base;
+    }
+    const char *audio = state->path + current_level(state)->path_length;
+    uint32_t base_length = text_length(base);
+    uint32_t audio_length = text_length(audio);
+    if (same_folded(base, base_length, audio, audio_length)) {
+        return true;
+    }
+    return !in_listing(state, base, base_length) &&
+           same_folded(base, stem_length(base, base_length), audio,
+                       stem_length(audio, audio_length));
+}
+
+static bool open_cue(ScanState *state, const ScanJob *job, const char *name)
+{
+    uint32_t folder = current_level(state)->path_length;
+    uint32_t length = text_length(name);
+    if (folder + length + 1 > sizeof state->cue_path) {
+        return false;
+    }
+    for (uint32_t index = 0; index < folder; index++) {
+        state->cue_path[index] = state->path[index];
+    }
+    for (uint32_t index = 0; index <= length; index++) {
+        state->cue_path[folder + index] = name[index];
+    }
+    ByteSource source;
+    uint32_t size = 0;
+    if (!job->files.open_file(job->files.context, state->cue_path, &source, &size)) {
+        return false;
+    }
+    cue_sheet_open(&state->cue, source, size, cue_names_audio, state);
+    return true;
+}
+
+static bool find_cue(ScanState *state, const ScanJob *job)
+{
+    const Level *level = current_level(state);
+    if (!level->has_cues) {
+        return false;
+    }
+    const uint32_t *offsets = (const uint32_t *)(const void *)(state->listing + level->first);
+    for (uint32_t index = 0; index < level->count; index++) {
+        const char *name = entry_name(state, offsets[index]);
+        if (entry_is_directory(state, offsets[index]) || !cue_sheet_is_name(name) ||
+            !open_cue(state, job, name)) {
+            continue;
+        }
+        uint32_t count = cue_sheet_count(&state->cue, &state->cue_next);
+        job->files.close_file(job->files.context);
+        if (count >= 2) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void cue_fields(ScanState *state, uint32_t duration_ms)
+{
+    const CueAlbum *album = &state->cue.album;
+    const CueTrack *cue = &state->cue_out;
+    const BuilderTrack *whole = &state->whole;
+    BuilderTrack *track = &state->fields.track;
+    *track = *whole;
+    if (cue->title[0] != '\0') {
+        track->title = cue->title;
+    } else {
+        cue_sheet_untitled(cue->number, state->untitled);
+        track->title = state->untitled;
+    }
+    track->artist = cue->performer[0] != '\0'     ? cue->performer
+                    : album->performer[0] != '\0' ? album->performer
+                                                  : whole->artist;
+    track->album_artist = album->performer[0] != '\0'   ? album->performer
+                          : whole->album_artist_guessed ? track->artist
+                                                        : whole->album_artist;
+    track->album_artist_guessed = album->performer[0] == '\0' && whole->album_artist_guessed;
+    track->album = album->title[0] != '\0' ? album->title : whole->album;
+    track->genre = album->genre[0] != '\0' ? album->genre : whole->genre;
+    uint32_t year = track_fields_year(album->date);
+    track->year = year != 0 ? (uint16_t)year : whole->year;
+    uint32_t disc = track_fields_number(album->disc);
+    track->disc = disc != 0 ? (uint8_t)(disc > 255 ? 255 : disc) : whole->disc;
+    track->number = cue->number;
+    track->duration_ms = duration_ms;
+    track->start_ms = cue->start_ms;
+    track->cue = true;
+}
+
+static ScanResult add_cue_track(ScanState *state, ScanStats *stats, uint32_t duration_ms)
+{
+    cue_fields(state, duration_ms);
+    ScanResult result =
+        builder_result(library_builder_add_track(&state->builder, &state->fields.track));
+    stats->tracks += result == SCAN_OK;
+    return result;
+}
+
+static ScanResult add_cue_tracks(ScanState *state, const ScanJob *job, ScanStats *stats)
+{
+    if (!open_cue(state, job, state->cue_path + current_level(state)->path_length)) {
+        stats->skipped++;
+        return SCAN_OK;
+    }
+    state->whole = state->fields.track;
+    cue_split_start(&state->split, state->whole.duration_ms);
+    ScanResult result = SCAN_OK;
+    uint32_t duration = 0;
+    while (result == SCAN_OK && cue_sheet_next(&state->cue, &state->cue_next)) {
+        if (cue_split_push(&state->split, &state->cue_next, &state->cue_out, &duration)) {
+            result = add_cue_track(state, stats, duration);
+        }
+    }
+    job->files.close_file(job->files.context);
+    if (result == SCAN_OK && cue_split_finish(&state->split, &state->cue_out, &duration)) {
+        result = add_cue_track(state, stats, duration);
+    }
+    return result;
+}
+
 static ScanResult add_file(ScanState *state, const ScanJob *job, ScanStats *stats)
 {
     ByteSource source;
     uint32_t size = 0;
     stats->files++;
+    bool split = find_cue(state, job);
     bool read = job->files.open_file(job->files.context, state->path, &source, &size);
     if (read) {
         TagFormat format = track_tags_format_for_name(state->path);
@@ -371,6 +558,10 @@ static ScanResult add_file(ScanState *state, const ScanJob *job, ScanStats *stat
     ScanResult result = SCAN_OK;
     if (read) {
         track_fields_from_tags(state->path + 1, &state->tags, &state->fields);
+    }
+    if (read && split) {
+        result = add_cue_tracks(state, job, stats);
+    } else if (read) {
         result = builder_result(library_builder_add_track(&state->builder, &state->fields.track));
         stats->tracks += result == SCAN_OK;
     } else {
