@@ -15,8 +15,8 @@ SECTIONS
     .code :
     {
         KEEP(*(.code_vectors))
-        EXCLUDE_FILE(*libecho_playback.a:embedded_lyrics.c.obj *libecho_playback.a:lyrics.c.obj *libecho_app.a:scrobbler_log.c.obj *libecho_app.a:settings_screens.c.obj *libecho_app.a:cold_screens.c.obj *libecho_app.a:diagnostics_rows.c.obj *libecho_app.a:diagnostics_values.c.obj *libecho_app.a:diagnostics_menu.c.obj *libecho_app.a:diagnostics_menu_release.c.obj *libecho_app.a:equalizer_files.c.obj *libecho_app.a:equalizer_screen.c.obj *libecho_app.a:bluetooth_screen.c.obj *libecho_app.a:date_time_screen.c.obj *libecho_app.a:folders_screen.c.obj *libecho_app.a:test_pattern_screen.c.obj *libecho_app.a:stopwatch_screen.c.obj *libecho_app.a:font_sample_screen.c.obj) *(.text .text.*)
-        EXCLUDE_FILE(*libecho_playback.a:embedded_lyrics.c.obj *libecho_playback.a:lyrics.c.obj *libecho_app.a:scrobbler_log.c.obj *libecho_app.a:settings_screens.c.obj *libecho_app.a:cold_screens.c.obj *libecho_app.a:diagnostics_rows.c.obj *libecho_app.a:diagnostics_values.c.obj *libecho_app.a:diagnostics_menu.c.obj *libecho_app.a:diagnostics_menu_release.c.obj *libecho_app.a:equalizer_files.c.obj *libecho_app.a:equalizer_screen.c.obj *libecho_app.a:bluetooth_screen.c.obj *libecho_app.a:date_time_screen.c.obj *libecho_app.a:folders_screen.c.obj *libecho_app.a:test_pattern_screen.c.obj *libecho_app.a:stopwatch_screen.c.obj *libecho_app.a:font_sample_screen.c.obj) *(.rodata .rodata.*)
+        EXCLUDE_FILE(*libecho_playback.a:embedded_lyrics.c.obj *libecho_playback.a:lyrics.c.obj *libecho_app.a:scrobbler_log.c.obj *libecho_app.a:settings_screens.c.obj *libecho_app.a:cold_screens.c.obj *libecho_app.a:diagnostics_rows.c.obj *libecho_app.a:diagnostics_values.c.obj *libecho_app.a:diagnostics_menu.c.obj *libecho_app.a:diagnostics_menu_release.c.obj *libecho_app.a:equalizer_files.c.obj *libecho_app.a:equalizer_screen.c.obj *libecho_app.a:bluetooth_screen.c.obj *libecho_app.a:date_time_screen.c.obj *libecho_app.a:folders_screen.c.obj *libecho_app.a:test_pattern_screen.c.obj *libecho_app.a:stopwatch_screen.c.obj *libecho_app.a:font_sample_screen.c.obj *libecho_playback.a:replay_gain.c.obj) *(.text .text.*)
+        EXCLUDE_FILE(*libecho_playback.a:embedded_lyrics.c.obj *libecho_playback.a:lyrics.c.obj *libecho_app.a:scrobbler_log.c.obj *libecho_app.a:settings_screens.c.obj *libecho_app.a:cold_screens.c.obj *libecho_app.a:diagnostics_rows.c.obj *libecho_app.a:diagnostics_values.c.obj *libecho_app.a:diagnostics_menu.c.obj *libecho_app.a:diagnostics_menu_release.c.obj *libecho_app.a:equalizer_files.c.obj *libecho_app.a:equalizer_screen.c.obj *libecho_app.a:bluetooth_screen.c.obj *libecho_app.a:date_time_screen.c.obj *libecho_app.a:folders_screen.c.obj *libecho_app.a:test_pattern_screen.c.obj *libecho_app.a:stopwatch_screen.c.obj *libecho_app.a:font_sample_screen.c.obj *libecho_playback.a:replay_gain.c.obj) *(.rodata .rodata.*)
         . = ALIGN(4);
         device_code_end = .;
     } > CODE_RAM
@@ -67,6 +67,7 @@ SECTIONS
         *libecho_app.a:test_pattern_screen.c.obj(.text .text.* .rodata .rodata.* .resident .resident.*)
         *libecho_app.a:stopwatch_screen.c.obj(.text .text.* .rodata .rodata.* .resident .resident.*)
         *libecho_app.a:font_sample_screen.c.obj(.text .text.* .rodata .rodata.* .resident .resident.*)
+        *libecho_playback.a:replay_gain.c.obj(.text .text.* .rodata .rodata.* .resident .resident.*)
         . = ALIGN(4);
         device_cold_end = .;
     } > HIGH_RAM

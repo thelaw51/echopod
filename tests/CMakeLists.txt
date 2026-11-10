@@ -53,7 +53,7 @@ target_compile_definitions(echo_library_fixtures PRIVATE
 )
 target_link_libraries(echo_library_fixtures PUBLIC echo_library echo_library_scan PRIVATE echo_options)
 
-foreach(playback_test play_queue resume_state up_next bookmarks spoken lyrics embedded_lyrics)
+foreach(playback_test play_queue resume_state up_next bookmarks spoken lyrics embedded_lyrics replay_gain)
     echo_add_unit_test(NAME test_${playback_test}
         SOURCES playback/test_${playback_test}.c
         LIBRARIES echo_playback echo_library_fixtures
@@ -360,7 +360,7 @@ set_tests_properties(test_fat_create PROPERTIES TIMEOUT 30 FIXTURES_SETUP create
 echo_add_unit_test(NAME test_scrobbler_card
     SOURCES device/test_scrobbler_card.c device/sparse_card.c
         ${PROJECT_SOURCE_DIR}/src/app/scrobbler_log.c ${PROJECT_SOURCE_DIR}/src/app/listen_history.c
-    LIBRARIES echo_device_logic echo_library echo_playback echo_hal
+    LIBRARIES echo_device_logic echo_library echo_playback echo_settings echo_hal
     PRIVATE_INCLUDES ${PROJECT_SOURCE_DIR}/src/app
 )
 target_compile_definitions(test_scrobbler_card PRIVATE ECHO_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures")

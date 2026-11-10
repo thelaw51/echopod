@@ -3,6 +3,7 @@ add_library(echo_playback STATIC
     embedded_lyrics.c
     lyrics.c
     play_queue.c
+    replay_gain.c
     resume_state.c
     spoken.c
     up_next.c
@@ -13,5 +14,5 @@ target_link_libraries(echo_playback
     PRIVATE echo_options echo_compact echo_lto
 )
 if(CMAKE_CROSSCOMPILING)
-    set_source_files_properties(embedded_lyrics.c lyrics.c PROPERTIES COMPILE_OPTIONS -fno-lto)
+    set_source_files_properties(embedded_lyrics.c lyrics.c replay_gain.c PROPERTIES COMPILE_OPTIONS -fno-lto)
 endif()

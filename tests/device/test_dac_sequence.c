@@ -352,6 +352,30 @@ static void volume_levels_map_onto_the_pcm_volume_scale(void)
     CHECK_EQUAL(0x02, dac_volume_value(80, DAC_CURVE_SINGLE_ENDED));
 }
 
+static void replay_gain_moves_the_volume_in_half_decibel_steps(void)
+{
+    uint8_t quarter = dac_volume_value(25, DAC_CURVE_SINGLE_ENDED);
+    CHECK_EQUAL(quarter, dac_volume_with_gain(quarter, 0, DAC_CURVE_SINGLE_ENDED));
+    CHECK_EQUAL(quarter + 13, dac_volume_with_gain(quarter, -648, DAC_CURVE_SINGLE_ENDED));
+    CHECK_EQUAL(quarter - 6, dac_volume_with_gain(quarter, 300, DAC_CURVE_SINGLE_ENDED));
+    CHECK_EQUAL(quarter - 1, dac_volume_with_gain(quarter, 26, DAC_CURVE_SINGLE_ENDED));
+    CHECK_EQUAL(quarter, dac_volume_with_gain(quarter, 24, DAC_CURVE_SINGLE_ENDED));
+}
+
+static void replay_gain_never_goes_above_the_top_volume_or_into_mute(void)
+{
+    uint8_t top = dac_volume_value(50, DAC_CURVE_SINGLE_ENDED);
+    uint8_t below_top = dac_volume_value(49, DAC_CURVE_SINGLE_ENDED);
+    CHECK_EQUAL(top, dac_volume_with_gain(top, 300, DAC_CURVE_SINGLE_ENDED));
+    CHECK_EQUAL(top, dac_volume_with_gain(below_top, 600, DAC_CURVE_SINGLE_ENDED));
+    uint8_t balanced_top = dac_volume_value(50, DAC_CURVE_BALANCED);
+    CHECK_EQUAL(balanced_top, dac_volume_with_gain(balanced_top, 600, DAC_CURVE_BALANCED));
+    uint8_t lowest = dac_volume_value(1, DAC_CURVE_SINGLE_ENDED);
+    CHECK_EQUAL(0xFE, dac_volume_with_gain(lowest, -6000, DAC_CURVE_SINGLE_ENDED));
+    CHECK_EQUAL(0xFF, dac_volume_with_gain(0xFF, 600, DAC_CURVE_SINGLE_ENDED));
+    CHECK_EQUAL(0xFF, dac_volume_with_gain(0xFF, -600, DAC_CURVE_SINGLE_ENDED));
+}
+
 static void the_balanced_curve_sits_three_units_lower(void)
 {
     CHECK_EQUAL(0xFF, dac_volume_value(0, DAC_CURVE_BALANCED));
@@ -437,6 +461,8 @@ int main(void)
         TEST_CASE(setting_the_volume_writes_both_pcm_volume_registers),
         TEST_CASE(the_gain_setting_writes_the_headphone_gain_register),
         TEST_CASE(volume_levels_map_onto_the_pcm_volume_scale),
+        TEST_CASE(replay_gain_moves_the_volume_in_half_decibel_steps),
+        TEST_CASE(replay_gain_never_goes_above_the_top_volume_or_into_mute),
         TEST_CASE(the_balanced_curve_sits_three_units_lower),
         TEST_CASE(the_quietest_steps_start_at_stock_s_floor_and_rise_smoothly),
         TEST_CASE(the_bluetooth_curve_sits_thirteen_units_below_single_ended),

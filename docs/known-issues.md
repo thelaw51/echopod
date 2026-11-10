@@ -50,7 +50,7 @@ EchoPod is early firmware made by one person and tested on one player. It comes 
 
 ## Not there yet
 
-- No ReplayGain. Lyrics come from a `.lrc` file next to the song (UTF-8 only) or from the song's tags (MP3 `USLT`, FLAC, Ogg and Opus; not `SYLT`, M4A, WAV, WMA, APE or DSD), up to 3 KB of text and 160 lines. Lyrics in an ID3v2.2 or 2.3 tag unsynchronised as a whole are skipped.
+- ReplayGain (Settings → Sound) reads only the tags listed in `docs/user-guide.md`: not APE tags on MP3, not WAV, WMA or APE files, and not iTunes Sound Check. It never raises the level above the top volume step, so near full volume a quiet song isn't raised all the way, and between gapless songs with different gains the change lands a few milliseconds late. Checked in the simulator and the tests, not yet on a player. Lyrics come from a `.lrc` file next to the song (UTF-8 only) or from the song's tags (MP3 `USLT`, FLAC, Ogg and Opus; not `SYLT`, M4A, WAV, WMA, APE or DSD), up to 3 KB of text and 160 lines. Lyrics in an ID3v2.2 or 2.3 tag unsynchronised as a whole are skipped.
 - The equalizer is off for 176.4 and 192 kHz tracks and in USB DAC mode. Turning it on or off while a FLAC or ALAC track plays takes effect on the second core from the next track; until then the main core does the work, so on 88.2/96 kHz tracks the screen can be less smooth for the rest of that track.
 - Bluetooth pairing with a PIN or a six-digit number, LDAC or other codecs, and DSD/DSF files aren't supported. What is known about each so far is in `docs/research.md`.
 - Bluetooth has been tested with one pair of headphones (OnePlus Buds 3). While music goes to Bluetooth the player can't read the headphone jack: pause, plug wired headphones in and press Play to switch.

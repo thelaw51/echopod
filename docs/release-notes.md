@@ -4,6 +4,8 @@
 
 ### New
 
+- **ReplayGain.** Settings → Sound → ReplayGain evens out loudness with the gains your tagger saved: **Track** plays every song at the same loudness, **Album** keeps each album's own balance. It reads MP3, FLAC, Ogg Vorbis, Opus and M4A tags, works by moving the player's volume so the music isn't changed, and never makes the player louder than its top volume step. Off by default. Checked in the simulator, not yet on a player.
+
 - **Lyrics from the song's tags.** When there's no `.lrc` file, Now Playing shows lyrics saved inside the song: MP3 `USLT`, and FLAC, Ogg and Opus `LYRICS` or `UNSYNCEDLYRICS`. Tag lyrics with `[mm:ss.xx]` times scroll with the song. A `.lrc` file still wins. Checked in the simulator, not yet on a player.
 - **Playlists made on the player.** Hold ▶ on a song and choose Add to playlist. Your playlists appear at the top of Music → Playlists, up to 16 of 200 songs each, and survive a rescan. Hold ▶ on a song in one to remove it, or on the playlist to delete it. They're numbered (Playlist 1, Playlist 2), since the player has no keyboard.
 - **Save Up Next as a playlist, and export playlists for a computer.** Up Next has a New playlist row above the playing song that saves the queue, up to 200 songs. Hold ▶ on a playlist made on the player and choose Export to card to write it to `EchoPod Playlists/Playlist N.m3u8`, with paths relative to that folder, so MusicBee and other players on a computer can open it. Checked in the simulator, not yet on a player.
@@ -16,6 +18,8 @@
 - **An update or the way back to FiiO no longer starts on a low battery.** Installs run after you eject or unplug, so they could start on battery. On battery the player now waits a few seconds for a steady reading and refuses below about 30 % (3.71 V), with "Battery too low. Plug in USB, then eject the drives again." On USB power it installs as before. Diagnostics → Last update shows the refusal as code 8.
 
 ### Fixed
+
+- **Diagnostics after Settings → Display.** Opening the Display group wrote one row past the end of the Settings rows, over the start of the Diagnostics menu, so opening Diagnostics afterwards could crash. The rows now have room for the largest group, and the build checks every group fits.
 
 - **The player no longer starts on an almost empty battery.** Turned on below about 7 % (3.55 V) without a charger, it shows "Battery low. Plug in to charge" for 2 seconds and switches off before it touches the card. Before, it started at 3.40 V and then shut itself down at 3.45 V a moment later, writing to the card on the way. The start level sits 100 mV above the running cut-off, so a battery that has just run flat and recovered a little doesn't start, stop and start again. With a charger plugged in, it opens the charge screen instead; hold Power for 2 seconds to use it while it charges.
 - **Settings from 0.9.1 or earlier carry over again.** Since 0.10.0, a player updated straight from 0.9.1 or earlier started from default settings: those versions wrote a 24-byte settings file and the newer firmware rejected anything under 32 bytes. Their brightness, volume, language, orientation and the rest now load, and are saved again in the current format.

@@ -74,7 +74,8 @@ static const uint8_t OPTION_COUNTS[SETTINGS_OPTION_COUNT] = {
     [OPTION_RETIRED_INTERNAL_STORAGE] = 2,
     [OPTION_STATUS_BAR] = 2,
     [OPTION_POWER_ON] = 2,
-    [OPTION_TIME_FORMAT] = 2};
+    [OPTION_TIME_FORMAT] = 2,
+    [OPTION_REPLAY_GAIN] = REPLAY_GAIN_MODE_COUNT};
 
 _Static_assert(OPTIONS_FIELD + SETTINGS_OPTION_COUNT <= CHECKSUM_FIELD,
                "the options must fit the file");

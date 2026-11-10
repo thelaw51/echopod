@@ -306,6 +306,19 @@ uint8_t dac_volume_value(uint8_t level, DacCurve curve)
     return (uint8_t)(top - VOLUME_STEP_NUMERATOR * capped / VOLUME_STEP_DENOMINATOR);
 }
 
+uint8_t dac_volume_with_gain(uint8_t value, int16_t gain_cdb, DacCurve curve)
+{
+    if (value == DAC_VOLUME_MUTED || gain_cdb == 0) {
+        return value;
+    }
+    int32_t half = gain_cdb >= 0 ? DAC_VOLUME_STEP_CDB / 2 : -DAC_VOLUME_STEP_CDB / 2;
+    int32_t adjusted = (int32_t)value - (gain_cdb + half) / DAC_VOLUME_STEP_CDB;
+    int32_t loudest = dac_volume_value(DAC_VOLUME_LEVELS, curve);
+    int32_t limit = value < loudest ? value : loudest;
+    adjusted = adjusted < limit ? limit : adjusted;
+    return adjusted < DAC_VOLUME_MUTED ? (uint8_t)adjusted : (uint8_t)(DAC_VOLUME_MUTED - 1);
+}
+
 void dac_output_on(const DacBus *bus, uint8_t volume, bool release_mute)
 {
     set_pin(bus, DAC_PIN_ENABLE_A, true);

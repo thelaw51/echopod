@@ -78,6 +78,7 @@ typedef struct AudioRefusal {
 typedef struct AudioClip {
     uint32_t start_ms;
     uint32_t end_ms;
+    int16_t gain_cdb;
 } AudioClip;
 
 typedef struct AudioSegment {
@@ -95,6 +96,7 @@ typedef struct AudioEngineStatus {
     uint32_t token;
     uint32_t position_ms;
     bool failed;
+    int16_t gain_cdb;
     AudioTrackInfo track;
 } AudioEngineStatus;
 
@@ -151,6 +153,7 @@ bool audio_engine_play(AudioEngine *engine, const char *path, AudioClip clip, ui
                        uint32_t token);
 const char *audio_engine_current_path(const AudioEngine *engine);
 void audio_engine_queue_next(AudioEngine *engine, const char *path, AudioClip clip, uint32_t token);
+void audio_engine_set_track_gain(AudioEngine *engine, uint32_t token, int16_t gain_cdb);
 bool audio_engine_seek(AudioEngine *engine, uint32_t position_ms);
 void audio_engine_lead_in(AudioEngine *engine, uint32_t silence_frames, uint32_t ramp_frames);
 void audio_engine_close_source(AudioEngine *engine);

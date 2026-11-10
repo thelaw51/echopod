@@ -85,6 +85,7 @@ typedef enum SettingOption {
     OPTION_STATUS_BAR,
     OPTION_POWER_ON,
     OPTION_TIME_FORMAT,
+    OPTION_REPLAY_GAIN,
     SETTINGS_OPTION_COUNT
 } SettingOption;
 
@@ -102,6 +103,13 @@ enum {
     COVER_FLOW_FIVE_COVERS,
     COVER_FLOW_THREE_COVERS
 };
+
+typedef enum ReplayGainMode {
+    REPLAY_GAIN_OFF,
+    REPLAY_GAIN_TRACK,
+    REPLAY_GAIN_ALBUM,
+    REPLAY_GAIN_MODE_COUNT
+} ReplayGainMode;
 
 typedef enum AnimationSpeed {
     ANIMATION_NORMAL,

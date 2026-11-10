@@ -6,6 +6,7 @@
 #include "core/i18n.h"
 #include "core/string_builder.h"
 #include "hal/storage.h"
+#include "playback/replay_gain.h"
 #include "playback/resume_state.h"
 #include "playback/spoken.h"
 
@@ -36,14 +37,36 @@ static bool track_path(const Player *player, uint16_t track, char *buffer, size_
     return !builder.overflowed;
 }
 
-static HalAudioClip track_clip(const Player *player, uint16_t track)
+static bool read_audio_file(void *context, uint32_t offset, void *buffer, uint32_t length)
+{
+    bool read = hal_file_read(*(const HalFile *)context, offset, buffer, length);
+    hal_audio_service();
+    return read;
+}
+
+static int16_t track_gain(const Player *player, const char *path)
+{
+    HalFile file;
+    if (player->replay_gain == REPLAY_GAIN_OFF || !hal_file_open(&file, path)) {
+        return 0;
+    }
+    ReplayGain gain;
+    ByteSource source = {.read = read_audio_file, .context = &file};
+    bool found = replay_gain_read(source, file.size, path, &gain);
+    hal_file_close(&file);
+    return found ? replay_gain_pick(gain, player->replay_gain == REPLAY_GAIN_ALBUM) : 0;
+}
+
+static HalAudioClip track_clip(const Player *player, uint16_t track, const char *path)
 {
     LibraryTrack record;
+    int16_t gain = track_gain(player, path);
     if (!library_read_track(player->library, track, &record) || !record.cue) {
-        return (HalAudioClip){.start_ms = 0, .end_ms = 0};
+        return (HalAudioClip){.start_ms = 0, .end_ms = 0, .gain_cdb = gain};
     }
     return (HalAudioClip){.start_ms = record.start_ms,
-                          .end_ms = record.start_ms + record.duration_ms};
+                          .end_ms = record.start_ms + record.duration_ms,
+                          .gain_cdb = gain};
 }
 
 static uint32_t new_token(Player *player)
@@ -104,7 +127,7 @@ static void queue_upcoming(Player *player)
     }
     player->next_cursor = upcoming;
     player->next_token = new_token(player);
-    hal_audio_queue_next(path, track_clip(player, track), player->next_token);
+    hal_audio_queue_next(path, track_clip(player, track, path), player->next_token);
 }
 
 static void note_spoken(Player *player, uint16_t track)
@@ -136,7 +159,7 @@ static bool start_current(Player *player, uint32_t start_ms)
     player->has_track = true;
     player->current_token = new_token(player);
     player->loaded =
-        hal_audio_play(path, track_clip(player, track), start_ms, player->current_token);
+        hal_audio_play(path, track_clip(player, track, path), start_ms, player->current_token);
     if (!player->loaded) {
         player->refusal = hal_audio_refusal();
         player->refusal_count++;
@@ -390,6 +413,22 @@ void player_set_repeat(Player *player, RepeatMode repeat)
     if (player->loaded) {
         queue_upcoming(player);
     }
+}
+
+void player_set_replay_gain(Player *player, ReplayGainMode mode)
+{
+    char path[PLAYER_PATH_CAPACITY];
+    uint16_t track = 0;
+    if (mode == player->replay_gain) {
+        return;
+    }
+    player->replay_gain = mode;
+    if (!player->loaded || !current_track(player, &track) ||
+        !track_path(player, track, path, sizeof path)) {
+        return;
+    }
+    hal_audio_set_track_gain(player->current_token, track_gain(player, path));
+    queue_upcoming(player);
 }
 
 static void take_next(Player *player)
