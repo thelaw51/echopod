@@ -51,3 +51,6 @@ target_link_libraries(echo_app
     PUBLIC echo_core echo_gfx echo_ui echo_fonts echo_library echo_playback echo_settings echo_sound echo_hal
     PRIVATE echo_options echo_compact echo_lto
 )
+if(CMAKE_CROSSCOMPILING)
+    set_source_files_properties(scrobbler_log.c PROPERTIES COMPILE_OPTIONS -fno-lto)
+endif()
