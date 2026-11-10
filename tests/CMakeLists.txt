@@ -69,7 +69,7 @@ echo_add_unit_test(NAME test_equalizer
 echo_add_unit_test(NAME test_equalizer_file SOURCES sound/test_equalizer_file.c LIBRARIES echo_sound)
 echo_add_unit_test(NAME test_equalizer_text SOURCES sound/test_equalizer_text.c LIBRARIES echo_sound)
 
-foreach(library_test block_cache library library_browse favorites covers sort_key track_fields playlist_reader playlist_writer cue_sheet music_fingerprint music_folders user_playlist)
+foreach(library_test block_cache library library_browse favorites covers sort_key track_fields playlist_reader playlist_writer cue_sheet music_fingerprint music_folders user_playlist play_log)
     echo_add_unit_test(NAME test_${library_test}
         SOURCES library/test_${library_test}.c
         LIBRARIES echo_library_fixtures

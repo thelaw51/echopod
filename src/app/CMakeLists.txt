@@ -32,6 +32,7 @@ add_library(echo_app STATIC
     user_playlists.c
     loved_tracks.c
     pinned_tracks.c
+    play_lists.c
     screens/bluetooth_screen.c
     screens/charge_screen.c
     screens/cover_flow_screen.c
@@ -62,6 +63,6 @@ if(CMAKE_CROSSCOMPILING)
         diagnostics_menu.c diagnostics_menu_release.c equalizer_files.c
         screens/equalizer_screen.c screens/bluetooth_screen.c screens/date_time_screen.c
         screens/folders_screen.c screens/test_pattern_screen.c screens/stopwatch_screen.c
-        screens/font_sample_screen.c
+        screens/font_sample_screen.c play_lists.c
         PROPERTIES COMPILE_OPTIONS -fno-lto)
 endif()

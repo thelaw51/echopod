@@ -4,6 +4,8 @@
 
 ### New
 
+- **Recently played and Most played.** Music → Favorites now lists the last 100 songs you played and your 100 most-played songs, next to Loved tracks. A song counts once you've heard half of it or 4 minutes, the same rule as the Last.fm scrobbles, so early skips don't count; audiobooks and podcasts never do. Kept in `/.echo/plays.bin` and found again after a rescan. Settings → Library → Listen history off stops the counting. Checked in the simulator, not yet on a player.
+
 - **ReplayGain.** Settings → Sound → ReplayGain evens out loudness with the gains your tagger saved: **Track** plays every song at the same loudness, **Album** keeps each album's own balance. It reads MP3, FLAC, Ogg Vorbis, Opus and M4A tags, works by moving the player's volume so the music isn't changed, and never makes the player louder than its top volume step. Off by default. Checked in the simulator, not yet on a player.
 
 - **Lyrics from the song's tags.** When there's no `.lrc` file, Now Playing shows lyrics saved inside the song: MP3 `USLT`, and FLAC, Ogg and Opus `LYRICS` or `UNSYNCEDLYRICS`. Tag lyrics with `[mm:ss.xx]` times scroll with the song. A `.lrc` file still wins. Checked in the simulator, not yet on a player.

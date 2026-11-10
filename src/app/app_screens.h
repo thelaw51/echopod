@@ -101,6 +101,7 @@ typedef struct AppScreensContext {
     FavoritesStore *favorites;
     UserPlaylists *playlists;
     LovedTracks *loved;
+    PlayLists *plays;
     PowerPolicy *power;
     Toast *toast;
     CoverCache *covers;

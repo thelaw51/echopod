@@ -55,5 +55,6 @@ EchoPod is early firmware made by one person and tested on one player. It comes 
 - Bluetooth pairing with a PIN or a six-digit number, LDAC or other codecs, and DSD/DSF files aren't supported. What is known about each so far is in `docs/research.md`.
 - Bluetooth has been tested with one pair of headphones (OnePlus Buds 3). While music goes to Bluetooth the player can't read the headphone jack: pause, plug wired headphones in and press Play to switch.
 - The 4.4 mm balanced output works (reported by a tester). Settings → Output can't switch sound between the jacks: both are driven by the same DACs, so it only picks the volume table (see `docs/user-guide.md`).
+- Recently played and Most played keep 200 songs between them, and a song played across a power-off or a USB connection counts only if one of its parts reaches half the song or 4 minutes. There's no Recently added list: the library doesn't record when a file arrived. Checked in the simulator, not yet on a player.
 - Audiobooks and podcasts: the shelves, covers and keeping them out of Music are checked on a player; bookmarks, in-order play and the 30 s / 15 s jumps so far only in the simulator. There's no playback speed control.
 - The brightness, Favorites stutter, sound-after-USB and battery-while-charging fixes since 0.1.0 still need a tester's confirmation on a player.

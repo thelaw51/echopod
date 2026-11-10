@@ -179,6 +179,22 @@ Each bookmark is `u32 key`, `u32 track key`, `u32 position_ms`, `u16 chapter`, `
 
 A zero-filled or damaged file reads as no record.
 
+## Play log
+
+`/.echo/plays.bin` (8 KB, reserved by `card_files`) holds the counts behind Favorites → Recently played and Most played (`library/play_log`, `app/play_lists`). It's two copies of a 2,420-byte log, at offsets 0 and 4,096; each write goes to the other copy with the next generation, and the player reads the valid copy with the higher generation, so a power cut during a write loses only that write. Every value is little-endian.
+
+| Offset | Type | Field |
+|---|---|---|
+| 0 | `char[4]` | magic `EPLG` |
+| 4 | `u16` | version 1 |
+| 6 | `u16` | entry count, up to 200 |
+| 8 | `u32` | generation, one more for every write |
+| 12 | `u32` | fingerprint of the library the track indices belong to |
+| 16 | 200 × 12 B | entries: `u32` path key, `u16` track index (`0xFFFF` when no track in the library has that key), `u16` plays (stops at 65,535), `u32` last (one more than the newest entry's at every counted play, so a higher number is more recent) |
+| 2,416 | `u32` | FNV-1a checksum of bytes 0–2,415 |
+
+The path key is the one playlists made on the player use (the FNV-1a hash of the track's path without its leading `/`, for a cue track continued with `#` and its number). When the library's fingerprint differs from the log's, the player walks every track once, matches the keys, rewrites the indices and the fingerprint, and writes the log back, as it does for playlists. A full log replaces, of the entries that aren't among the 100 with the highest `last`, the one with the fewest plays (the oldest of those on a tie). Recently played lists the 100 entries with a track and the highest `last`; Most played lists the 100 with the most plays, the higher `last` first on a tie.
+
 ## Listen history file
 
 `/.echo/history.bin` (1 MiB, reserved by the player) logs the songs the player played. The player turns it into `/.scrobbler.log` itself whenever it connects to a computer, and `tools/echo_history.py` can do the same on a PC (see `docs/user-guide.md`, Listen history, and below). It's a ring of 2,048 slots of 512 bytes; the player works out the slot count from the file's size, so a smaller or larger file works too. A record with sequence number `n` always sits in slot `(n − 1) mod slots`, so when the ring is full the newest record overwrites the oldest. Every value is little-endian.

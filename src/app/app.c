@@ -34,6 +34,7 @@
 #include "listen_history.h"
 #include "loved_tracks.h"
 #include "music_check.h"
+#include "play_lists.h"
 #include "player.h"
 #include "screens/charge_screen.h"
 #include "scrobbler_log.h"
@@ -134,6 +135,7 @@ typedef struct AppState {
     FavoritesStore favorites;
     UserPlaylists playlists;
     LovedTracks loved;
+    PlayLists plays;
     SpokenStore spoken;
     ListenHistory history;
     ClockStore clock;
@@ -821,6 +823,7 @@ static void start_playback(void)
     library_store_open(&app.library);
     user_playlists_load(&app.playlists, &app.library.library);
     loved_tracks_load(&app.loved, &app.library.library);
+    play_lists_load(&app.plays, &app.library.library);
     player_init(&app.player, &app.library.library);
     settings_store_restore_playback(&app.settings, &app.player, hal_clock_microseconds());
     player_restore(&app.player);
@@ -861,6 +864,7 @@ static void start_screens(uint32_t now_ms)
         .favorites = &app.favorites,
         .playlists = &app.playlists,
         .loved = &app.loved,
+        .plays = &app.plays,
         .power = &app.power,
         .toast = &app.toast,
         .covers = &app.covers,
@@ -952,6 +956,7 @@ void app_start(void)
     hal_power_confirm_start(app.settings.settings.options[OPTION_POWER_ON] == POWER_ON_HOLD);
     clock_store_start(&app.clock, &app.settings.settings, now_ms);
     app.history.clock = &app.clock.clock;
+    app.history.counted = (HistoryCounted){play_lists_count, &app.plays};
     apply_orientation();
     equalizer_store_load(&app.equalizer);
     start_playback();
