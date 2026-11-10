@@ -7,7 +7,7 @@
 
 enum {
     PATH_CAPACITY = 1024,
-    PACK_LIMIT = 0x3000
+    PACK_LIMIT = 0x3800
 };
 
 static const char PACK_PATHS[] = ECHO_LANGUAGE_PACK_PATHS;
