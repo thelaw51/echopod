@@ -220,6 +220,29 @@ int user_playlists_create(UserPlaylists *store)
     return free_slot;
 }
 
+int user_playlists_create_from(UserPlaylists *store, const uint16_t *tracks, uint16_t count)
+{
+    int slot = user_playlists_create(store);
+    if (slot == USER_PLAYLISTS_NO_SLOT) {
+        return USER_PLAYLISTS_NO_SLOT;
+    }
+    for (uint16_t index = 0; index < count && store->loaded.count < USER_PLAYLIST_TRACKS; index++) {
+        uint32_t key = 0;
+        if (user_playlist_track_key(store->library, tracks[index], &key)) {
+            (void)user_playlist_add(&store->loaded, key, tracks[index]);
+        }
+        if (index % USER_PLAYLIST_TRACKS_PER_PAUSE == 0) {
+            keep_audio_fed(NULL);
+        }
+    }
+    if (store->loaded.count > 0 && !write_slot(slot, &store->loaded)) {
+        store->loaded_slot = USER_PLAYLISTS_NO_SLOT;
+        (void)user_playlists_delete(store, slot);
+        return USER_PLAYLISTS_NO_SLOT;
+    }
+    return slot;
+}
+
 UserPlaylistsResult user_playlists_add_track(UserPlaylists *store, int slot, uint16_t track)
 {
     uint32_t key = 0;
