@@ -1,4 +1,4 @@
-# Library database format (version 3)
+# Library database format (version 4)
 
 The PC indexer (`tools/library_index.py`) writes the library database. The device reads it (`src/library`). Everything is sorted on the PC, so the device never sorts. It reads fixed-size records by index and strings by offset, a few hundred bytes at a time.
 
@@ -12,7 +12,7 @@ The PC indexer (`tools/library_index.py`) writes the library database. The devic
 | Offset | Type | Field |
 |---|---|---|
 | 0 | `char[4]` | magic `EMDB` |
-| 4 | `u16` | version = 3 (the player rebuilds a library of any other version) |
+| 4 | `u16` | version = 4 (the player rebuilds a library of any other version; version 3 had 24-byte tracks without a cue start) |
 | 6 | `u16` | section count = 10 |
 | 8 | 10 × 12 B | section directory, in the order below |
 
@@ -20,7 +20,7 @@ Each section directory entry is `u32 offset`, `u32 count`, `u16 record size`, `u
 
 | # | Section | Record size | Content |
 |---|---|---|---|
-| 0 | tracks | 24 | grouped by album in album order, then disc, track number and title |
+| 0 | tracks | 28 | grouped by album in album order, then disc, track number and title |
 | 1 | albums | 16 | sorted by title, then album artist |
 | 2 | artists | 12 | track artists, sorted by name |
 | 3 | album artists | 12 | sorted by name |
@@ -35,7 +35,7 @@ Each section directory entry is `u32 offset`, `u32 count`, `u16 record size`, `u
 
 | Record | Layout |
 |---|---|
-| **Track** | `u32 title`, `u32 path`, `u16 album`, `u16 artist`, `u16 genre`, `u16 folder`, `u32 duration_ms`, `u8 disc`, `u8 number`, `u16 reserved` |
+| **Track** | `u32 title`, `u32 path`, `u16 album`, `u16 artist`, `u16 genre`, `u16 folder`, `u32 duration_ms`, `u8 disc`, `u8 number`, `u16 flags`, `u32 start_ms` |
 | **Album** | `u32 title`, `u16 album_artist`, `u16 genre`, `u16 year`, `u16 first_track`, `u16 track_count`, `u16 cover` |
 | **Group** (artist, album artist, genre, playlist) | `u32 name`, `u32 first_link`, `u16 link_count`, `u16 reserved` |
 | **Folder** | `u32 name`, `u16 parent`, `u16 subfolder_count`, `u32 first_link`, `u16 track_count`, `u16 reserved` |
@@ -43,6 +43,7 @@ Each section directory entry is `u32 offset`, `u32 count`, `u16 record size`, `u
 Field notes:
 - `u32` string fields hold an offset into the strings section.
 - Track `path` is relative to the music root and uses `/`. A track on the player's internal storage has a path under `:internal/`, a top-level folder no FAT or exFAT card can hold (`:` isn't allowed in names): `:internal/Artist/Album/01.flac` is `Artist/Album/01.flac` on internal storage. The folder is sorted among the root's names by its bytes like any other, and its folder record is named `:internal` (the player shows it as "Internal storage"). A library built without internal storage (echo-sync with no internal drive found, or a player whose internal volume didn't mount) has no such paths. Every string is Unicode NFC (composed). FAT cards store names in NFC, but macOS lists them decomposed (NFD), so the indexer recomposes paths, playlist names, playlist entries and tags. The device then matches paths against the card's names without any Unicode tables. Track `artist` indexes the artists section, and `genre` indexes genres.
+- Track `flags` bit 0 marks a cue track (see Cue sheets); the other bits are 0. `start_ms` is where a cue track starts in its file, and 0 for any other track. A cue track plays from `start_ms` to `start_ms + duration_ms`. Several cue tracks share one `path`.
 - An album's tracks are `tracks[first_track .. first_track + track_count)`. Album `cover` is reserved and always `0xFFFF`. Covers live in their own file, keyed by album key (see Covers file).
 - A group's albums are `links[first_link .. first_link + link_count)`. Artists list every album containing at least one of their tracks. Artist and album-artist albums are ordered by year, then title; genre albums are ordered by title. Within each section the groups' links are consecutive and in group order (group `n + 1` starts where group `n` ends). Cover Flow relies on this for album artists to read its order straight from `links`; a file that breaks it gets Cover Flow in album order instead.
 - A playlist's links are track indices in playlist order. Its name is the file name without `.m3u` or `.m3u8`.
@@ -92,6 +93,21 @@ On the device, `track_tags_read` reads through a `ByteSource` with small bounded
 
 `library/library_scan` walks the card for it through a `ScanFileSystem` (list a folder, open a file): each folder is read whole, names starting with `.` are dropped, the rest sorted by their UTF-8 bytes (the PC's part-wise path order), and the walk goes depth first without recursion, with one folder open at a time. Files with a stock extension get `track_tags_read` and `library/track_fields` (the fallbacks below), then go to the builder. A file whose tags can't be read is skipped and counted. An eighth of the scratch block (16–96 KB) holds the folder listings unless a separate listing buffer is given; the builder gets the rest and the scan job's scratch file. Its test scans `tests/fixtures/tags` through the simulator's file HAL and must mean the same as `tests/fixtures/tags_library.db`, which `tags_library_up_to_date` re-indexes with the PC tool. On 2026-10-18 it also matched the PC indexer byte for byte on a 50-track sample folder.
 
+## Cue sheets
+
+A `.cue` file (any case, hidden files skipped) in the same folder as an audio file can split that file into tracks. The player's scanner (`library/cue_sheet`, `library_scan`) and the PC indexer (`parse_cue`, `cue_tracks` in `tools/library_index.py`, which echo-sync uses) follow the same rules, checked on `tests/fixtures/cue_music` (written by `tools/cue_fixture.py`) against `cue_music.db`.
+
+- **Text.** A cue is read like a playlist: strict UTF-8 with or without a BOM, otherwise Windows-1252; lines split and trimmed as `str.splitlines` and `str.strip` do; blank lines and lines starting with `#` are skipped. A line's first word (ASCII case-insensitive) is its keyword; words are split on spaces and tabs. A value starting with `"` runs to the next `"` or the end of the line, otherwise it is the rest of the line. For `FILE` without quotes, the last word (the file type) is dropped when there is more than one. Values are cleaned like tag values (Files and tags).
+- **Album fields.** Before the first `TRACK`: `TITLE`, `PERFORMER`, `REM GENRE`, `REM DATE` and `REM DISCNUMBER`.
+- **Tracks.** `TRACK n` starts a track (`n` from its leading digits, at most 255; none is 0). Inside it, `TITLE`, `PERFORMER` and the first `INDEX 01 mm:ss:ff` count (75 frames a second, minutes may pass 99). The start in milliseconds is `(frames × 40 + 1) // 3`. `INDEX 00` (the pregap) is ignored, so the gap plays at the end of the track before. A track without `INDEX 01`, or starting no later than the last track kept, is left out.
+- **Files.** A track belongs to the `FILE` in effect at its `INDEX 01`. A `FILE` names an audio file when its last path part (after `/` or `\`) equals the file's name ignoring ASCII case, or when the folder holds no entry of that name and the stems (the name up to its last `.`, if that isn't the first character) are equal ignoring ASCII case: a cue written for `Album.wav` works for `Album.flac`.
+- **Which cue.** For each audio file, the folder's `.cue` files are read in name order (UTF-8 bytes); the first that gives the file at least two tracks splits it. Otherwise the file is one track as usual.
+- **Track fields.** The image's own tags and the usual fallbacks give a base track; then title is the cue `TITLE` or `Track NN` (two digits at least), artist the track's `PERFORMER`, then the album `PERFORMER`, then the base artist; album artist the album `PERFORMER`, then the base album-artist tag, then the track's artist (marked as guessed, so the shared-album-artist rule applies); album, genre, year and disc the cue's values when present (year and disc read as for tags), else the base's; number the `TRACK` number.
+- **Lengths.** Tracks starting at or after the file's length are left out (none when the length is 0). Each track ends where the next kept one starts, the last at the end of the file (a length of 0 when the file's length is unknown).
+- **Order.** A split file's tracks are added in cue order at the file's place in the walk, so they keep that order wherever tracks would tie. `.cue` files also count toward the music fingerprint, on the player and in echo-sync, so adding or editing one starts a rescan.
+
+Paths are not unique once a file is split. M3U entries naming it resolve to its last cue track (the last of equal keys wins, as before). Playlists made on the player and loved songs key a cue track by the path hash continued with `#` and the track number byte, so each cue track keeps its own entry. Bookmarks keep their path keys: a split audiobook is a folder of chapters like any other.
+
 ## Fallbacks for missing tags
 
 | Missing | Used instead |
@@ -126,7 +142,7 @@ Favorites outlive a re-index, so they don't store album indices. An album's key 
 
 ## Playlists made on the player
 
-`/.echo/playlists.bin` holds the playlists made on the player, in 16 slots of 1,220 bytes (19,520 bytes, reserved by `card_files`). A slot holds the magic `EMPL`, `u16` version 1, the playlist's `u16` number at byte 6 (0 for an empty slot; the list shows it as "Playlist 3"), the `u16` entry count at byte 8, the library fingerprint the track indices were resolved against at byte 12, 200 entries of 6 bytes from byte 16 (the `u32` FNV-1a hash of the track's path without its leading `/`, then its `u16` track index, `0xFFFF` when no track has that path) and an FNV-1a checksum of everything before it in the last 4 bytes. A slot that fails its checksum reads as empty.
+`/.echo/playlists.bin` holds the playlists made on the player, in 16 slots of 1,220 bytes (19,520 bytes, reserved by `card_files`). A slot holds the magic `EMPL`, `u16` version 1, the playlist's `u16` number at byte 6 (0 for an empty slot; the list shows it as "Playlist 3"), the `u16` entry count at byte 8, the library fingerprint the track indices were resolved against at byte 12, 200 entries of 6 bytes from byte 16 (the `u32` FNV-1a hash of the track's path without its leading `/`, for a cue track continued with the bytes `#` and its number, then its `u16` track index, `0xFFFF` when no track has that path) and an FNV-1a checksum of everything before it in the last 4 bytes. A slot that fails its checksum reads as empty.
 
 The path hashes let a playlist outlive a rescan. When the library's fingerprint changes, or a stored index no longer points at a track with that hash, the player walks every track once, matches the hashes and writes the slot back. A song that left the library keeps its entry with `0xFFFF` and is skipped, so it comes back if the file returns. The file is written in place, a slot at a time, because the player can't delete or shrink files on the card. Deleting a playlist writes an empty slot. A slot is rewritten whole with no second copy, so power lost mid-write leaves a slot that fails its checksum: that playlist is gone, and the rest are unharmed unless the card loses the sector they share.
 
