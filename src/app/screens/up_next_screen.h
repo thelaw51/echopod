@@ -9,6 +9,7 @@
 #include "ui/screen.h"
 #include "ui/theme.h"
 #include "ui/toast.h"
+#include "user_playlists.h"
 
 enum {
     UP_NEXT_ROWS = 11,
@@ -22,6 +23,7 @@ typedef struct UpNextConfig {
     const Theme *theme;
     Player *player;
     LovedTracks *loved;
+    UserPlaylists *playlists;
     Toast *toast;
 } UpNextConfig;
 
@@ -31,6 +33,7 @@ typedef struct UpNextScreen {
     ListModel model;
     ListView list;
     int count;
+    int extra;
     int added;
     int rows_first;
     int rows_count;

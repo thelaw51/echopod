@@ -298,6 +298,7 @@ Screen *app_screens_init(AppScreens *screens, AppScreensContext context)
                             .theme = theme,
                             .player = context.player,
                             .loved = context.loved,
+                            .playlists = context.playlists,
                             .toast = context.toast};
     NowPlayingConfig now_playing = {.player = context.player,
                                     .library = &context.store->library,

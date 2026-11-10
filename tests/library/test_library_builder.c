@@ -4,7 +4,10 @@
 
 #include "check.h"
 #include "library/library.h"
+#include "library/library_browse.h"
 #include "library/library_builder.h"
+#include "library/playlist_reader.h"
+#include "library/playlist_writer.h"
 #include "library_compare.h"
 #include "memory_source.h"
 #include "random_library.h"
@@ -286,6 +289,92 @@ static void the_fixture_playlist_resolves_like_the_pc_indexer(void)
     Built built;
     finish(&builder, &built);
     check_means_fixture(&built, "small_library.db");
+}
+
+static uint32_t export_all_tracks(const Library *library, char *text, uint32_t capacity)
+{
+    uint32_t length = 0;
+    char line[PLAYLIST_WRITER_LINE_CAPACITY];
+    for (const char *header = PLAYLIST_WRITER_HEADER; *header != '\0'; header++) {
+        text[length++] = *header;
+    }
+    uint32_t tracks = library_count(library, LIBRARY_TRACKS);
+    for (uint32_t track = 0; track < tracks; track++) {
+        uint32_t written =
+            playlist_writer_entry(library, (uint16_t)track, "../", line, sizeof line);
+        CHECK(written > 0 && length + written < capacity);
+        memcpy(text + length, line, written);
+        length += written;
+    }
+    return length;
+}
+
+static void exported_playlists_read_back_as_the_same_songs(void)
+{
+    LibraryBuilder builder;
+    start(&builder);
+    add_fixture_tracks(&builder);
+    Built first;
+    finish(&builder, &first);
+    MemorySource first_memory = {.bytes = first.output.bytes, .size = first.length};
+    Library before;
+    CHECK_EQUAL(LIBRARY_OK, library_open(&before, memory_source(&first_memory), first.length));
+    static char text[64 * 1024];
+    uint32_t length = export_all_tracks(&before, text, sizeof text);
+    start(&builder);
+    add_fixture_tracks(&builder);
+    CHECK_EQUAL(BUILDER_OK,
+                library_builder_begin_playlist(&builder, "Playlist 1", "EchoPod Playlists"));
+    MemorySource text_memory = {.bytes = (const uint8_t *)text, .size = length};
+    PlaylistReader reader;
+    char entry[PLAYLIST_ENTRY_CAPACITY];
+    playlist_reader_open(&reader, memory_source(&text_memory), length);
+    while (playlist_reader_next(&reader, entry, sizeof entry)) {
+        CHECK_EQUAL(BUILDER_OK, library_builder_playlist_entry(&builder, entry));
+    }
+    Built second;
+    finish(&builder, &second);
+    CHECK_EQUAL(BUILDER_OK, second.result);
+    MemorySource second_memory = {.bytes = second.output.bytes, .size = second.length};
+    Library after;
+    CHECK_EQUAL(LIBRARY_OK, library_open(&after, memory_source(&second_memory), second.length));
+    BrowseQuery playlist = {
+        .kind = BROWSE_PLAYLIST_TRACKS, .group = LIBRARY_PLAYLISTS, .subject = 0};
+    uint32_t tracks = library_count(&before, LIBRARY_TRACKS);
+    CHECK_EQUAL(tracks, browse_count(&after, playlist));
+    for (uint32_t position = 0; position < tracks; position++) {
+        BrowseItem item;
+        LibraryTrack wanted;
+        LibraryTrack found;
+        char wanted_path[512];
+        char found_path[512];
+        CHECK(browse_item(&after, playlist, position, &item));
+        CHECK(library_read_track(&before, position, &wanted));
+        CHECK(library_read_track(&after, item.index, &found));
+        CHECK(library_read_string(&before, wanted.path, wanted_path, sizeof wanted_path));
+        CHECK(library_read_string(&after, found.path, found_path, sizeof found_path));
+        CHECK(strcmp(wanted_path, found_path) == 0);
+    }
+    free(first.output.bytes);
+    free(second.output.bytes);
+}
+
+static void internal_storage_songs_are_left_out_of_exports(void)
+{
+    LibraryBuilder builder;
+    start(&builder);
+    BuilderTrack inside =
+        track(":internal/Album/01.flac", "One", "Artist", "Artist", "Album", "Rock", 2000, 1);
+    CHECK_EQUAL(BUILDER_OK, library_builder_add_track(&builder, &inside));
+    Built built;
+    finish(&builder, &built);
+    MemorySource memory = {.bytes = built.output.bytes, .size = built.length};
+    Library library;
+    CHECK_EQUAL(LIBRARY_OK, library_open(&library, memory_source(&memory), built.length));
+    char line[PLAYLIST_WRITER_LINE_CAPACITY];
+    CHECK_EQUAL(1, library_count(&library, LIBRARY_TRACKS));
+    CHECK_EQUAL(0, playlist_writer_entry(&library, 0, "../", line, sizeof line));
+    free(built.output.bytes);
 }
 
 static void random_playlists_resolve_like_the_pc_indexer(void)
@@ -582,6 +671,8 @@ int main(void)
         TEST_CASE(the_fixture_tracks_mean_the_same_as_the_pc_indexer),
         TEST_CASE(random_tracks_mean_the_same_as_the_pc_indexer),
         TEST_CASE(the_fixture_playlist_resolves_like_the_pc_indexer),
+        TEST_CASE(exported_playlists_read_back_as_the_same_songs),
+        TEST_CASE(internal_storage_songs_are_left_out_of_exports),
         TEST_CASE(random_playlists_resolve_like_the_pc_indexer),
         TEST_CASE(random_libraries_match_the_reference_builder),
         TEST_CASE(a_20000_track_library_builds_in_the_players_memory),
