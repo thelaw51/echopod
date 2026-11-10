@@ -34,7 +34,8 @@ PATH_CAPACITY = 1024
 MAX_DEPTH = 32
 EXFAT_SIZE_LIMIT = 1 << 32
 COUNTED_SUFFIXES = tuple(sorted(suffix.encode("ascii") for suffix in
-                                library_index.AUDIO_SUFFIXES | library_index.PLAYLIST_SUFFIXES))
+                                library_index.AUDIO_SUFFIXES | library_index.PLAYLIST_SUFFIXES |
+                                {library_index.CUE_SUFFIX}))
 ART_NAMES = frozenset(f"{stem}{suffix}".encode("ascii")
                       for stem in cover_export.FOLDER_IMAGE_STEMS
                       for suffix in cover_export.FOLDER_IMAGE_SUFFIXES)

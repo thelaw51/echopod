@@ -199,6 +199,20 @@ static void scanning_folders_and_playlists_matches_the_pc_indexer(void)
     free(expected);
 }
 
+static void cue_sheets_split_images_like_the_pc_indexer(void)
+{
+    static Output output;
+    Progress progress = {.calls = 0};
+    ScanStats stats;
+    CHECK_EQUAL(SCAN_OK, scan_folder(ECHO_FIXTURE_DIR "/cue_music", &output, &progress, &stats));
+    CHECK_EQUAL(10u, stats.tracks);
+    CHECK_EQUAL(6u, stats.files);
+    uint32_t expected_size = 0;
+    uint8_t *expected = read_fixture("cue_music.db", &expected_size);
+    CHECK(library_compare(expected, expected_size, output.bytes, stats.length));
+    free(expected);
+}
+
 static void internal_storage_scans_as_one_more_root_folder_like_the_pc_indexer(void)
 {
     static uint8_t memory[MEMORY_SIZE];
@@ -576,6 +590,7 @@ int main(void)
     static const TestCase cases[] = {
         TEST_CASE(scanning_the_tag_fixtures_matches_the_pc_indexer),
         TEST_CASE(scanning_folders_and_playlists_matches_the_pc_indexer),
+        TEST_CASE(cue_sheets_split_images_like_the_pc_indexer),
         TEST_CASE(left_out_folders_match_the_pc_indexer),
         TEST_CASE(a_folder_that_cannot_be_opened_leaves_the_next_ones_scanned),
         TEST_CASE(a_missing_music_root_says_so),

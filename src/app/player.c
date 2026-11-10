@@ -36,6 +36,16 @@ static bool track_path(const Player *player, uint16_t track, char *buffer, size_
     return !builder.overflowed;
 }
 
+static HalAudioClip track_clip(const Player *player, uint16_t track)
+{
+    LibraryTrack record;
+    if (!library_read_track(player->library, track, &record) || !record.cue) {
+        return (HalAudioClip){.start_ms = 0, .end_ms = 0};
+    }
+    return (HalAudioClip){.start_ms = record.start_ms,
+                          .end_ms = record.start_ms + record.duration_ms};
+}
+
 static uint32_t new_token(Player *player)
 {
     return ++player->token_counter;
@@ -89,12 +99,12 @@ static void queue_upcoming(Player *player)
     player->has_next =
         upcoming_track(player, &upcoming, &track) && track_path(player, track, path, sizeof path);
     if (!player->has_next) {
-        hal_audio_queue_next(NULL, 0);
+        hal_audio_queue_next(NULL, (HalAudioClip){.start_ms = 0, .end_ms = 0}, 0);
         return;
     }
     player->next_cursor = upcoming;
     player->next_token = new_token(player);
-    hal_audio_queue_next(path, player->next_token);
+    hal_audio_queue_next(path, track_clip(player, track), player->next_token);
 }
 
 static void note_spoken(Player *player, uint16_t track)
@@ -125,7 +135,8 @@ static bool start_current(Player *player, uint32_t start_ms)
     player->track = track;
     player->has_track = true;
     player->current_token = new_token(player);
-    player->loaded = hal_audio_play(path, start_ms, player->current_token);
+    player->loaded =
+        hal_audio_play(path, track_clip(player, track), start_ms, player->current_token);
     if (!player->loaded) {
         player->refusal = hal_audio_refusal();
         player->refusal_count++;

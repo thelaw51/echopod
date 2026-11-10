@@ -9,7 +9,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
 
 MAGIC = b"EMDB"
-VERSION = 3
+VERSION = 4
 HEADER_SIZE = 128
 SECTION_ALIGNMENT = 4
 NONE = 0xFFFF
@@ -34,7 +34,8 @@ FNV_PRIME = 16777619
 
 HEADER_PREFIX = struct.Struct("<4sHH")
 SECTION_ENTRY = struct.Struct("<IIHH")
-TRACK_RECORD = struct.Struct("<IIHHHHIBBH")
+TRACK_RECORD = struct.Struct("<IIHHHHIBBHI")
+TRACK_CUE = 0x0001
 ALBUM_RECORD = struct.Struct("<IHHHHHH")
 GROUP_RECORD = struct.Struct("<IIHH")
 FOLDER_RECORD = struct.Struct("<IHHIHH")
@@ -65,6 +66,8 @@ class TrackInfo:
     number: int
     duration_ms: int
     album_artist_guessed: bool = False
+    start_ms: int = 0
+    cue: bool = False
 
 
 @dataclass
@@ -310,6 +313,190 @@ def read_track(root, path, prefix=""):
     duration = audio.info.length if audio is not None else 0.0
     relative = music_path(prefix, path.relative_to(root))
     return track_from_tags(nfc(relative), normalized_tags(audio), duration)
+
+
+CUE_SUFFIX = ".cue"
+CUE_BLANKS = " \t"
+CUE_MINIMUM_TRACKS = 2
+CUE_TIME = re.compile(r"([0-9]+):([0-9]+):([0-9]+)(?=[ \t]|\Z)")
+CUE_DIGITS = re.compile(r"[0-9]+")
+ASCII_LOWER = str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
+
+
+@dataclass
+class CueTrack:
+    number: int
+    start_ms: int = 0
+    title: str = ""
+    performer: str = ""
+
+
+@dataclass
+class CueSheet:
+    title: str = ""
+    performer: str = ""
+    genre: str = ""
+    date: str = ""
+    disc: str = ""
+    tracks: list = field(default_factory=list)
+
+
+def ascii_lower(text):
+    return text.translate(ASCII_LOWER)
+
+
+def cue_word(text):
+    end = 0
+    while end < len(text) and text[end] not in CUE_BLANKS:
+        end += 1
+    return text[:end], text[end:].lstrip(CUE_BLANKS)
+
+
+def cue_digits(text):
+    match = CUE_DIGITS.match(text)
+    return (min(int(match.group(0)), MAX_U32), text[match.end():]) if match else (None, text)
+
+
+def cue_quoted(text):
+    if not text.startswith('"'):
+        return text
+    end = text.find('"', 1)
+    return text[1:] if end < 0 else text[1:end]
+
+
+def cue_text(text):
+    return tag_text(text).strip()
+
+
+def cue_file_value(text):
+    value = cue_quoted(text)
+    if not text.startswith('"'):
+        cut = len(value)
+        while cut > 0 and value[cut - 1] not in CUE_BLANKS:
+            cut -= 1
+        while cut > 0 and value[cut - 1] in CUE_BLANKS:
+            cut -= 1
+        value = value[:cut] if cut > 0 else value
+    return cue_text(value)
+
+
+def cue_frames(text):
+    match = CUE_TIME.match(text)
+    if not match:
+        return None
+    minutes, seconds, frames = (min(int(part), MAX_U32) for part in match.groups())
+    return (minutes * 60 + seconds) * 75 + frames
+
+
+def cue_frames_to_ms(frames):
+    return min((frames * 40 + 1) // 3, MAX_U32)
+
+
+def cue_untitled(number):
+    return f"Track {number:02d}"
+
+
+def parse_cue(text, matches):
+    """Reads a cue sheet's album fields and the tracks whose INDEX 01 falls in a FILE that
+    matches(name) accepts. Tracks without INDEX 01, or starting no later than the track
+    before, are left out."""
+    sheet = CueSheet()
+    file_matches = False
+    current = None
+    previous_start = None
+
+    def finish():
+        nonlocal previous_start
+        if current is None or current["start"] is None or not current["matches"]:
+            return
+        if previous_start is not None and current["start"] <= previous_start:
+            return
+        previous_start = current["start"]
+        sheet.tracks.append(CueTrack(current["number"], current["start"], current["title"],
+                                     current["performer"]))
+
+    for line in parse_m3u(text):
+        key, rest = cue_word(line)
+        key = ascii_lower(key)
+        if key == "file":
+            name = cue_file_value(rest)
+            file_matches = name != "" and matches(name)
+        elif key == "track":
+            finish()
+            number, _ = cue_digits(rest)
+            current = {"number": min(number or 0, MAX_U8), "start": None, "matches": False,
+                       "title": "", "performer": ""}
+        elif current is not None:
+            if key in ("title", "performer"):
+                current[key] = cue_text(cue_quoted(rest))
+            elif key == "index" and current["start"] is None:
+                index, after = cue_digits(rest)
+                if index == 1 and after[:1] in (" ", "\t") and after:
+                    frames = cue_frames(after.lstrip(CUE_BLANKS))
+                    if frames is not None:
+                        current["start"] = cue_frames_to_ms(frames)
+                        current["matches"] = file_matches
+        elif key in ("title", "performer"):
+            setattr(sheet, key, cue_text(cue_quoted(rest)))
+        elif key == "rem":
+            name, value = cue_word(rest)
+            field_name = {"genre": "genre", "date": "date", "discnumber": "disc"}.get(ascii_lower(name))
+            if field_name:
+                setattr(sheet, field_name, cue_text(cue_quoted(value)))
+    finish()
+    return sheet
+
+
+def cue_stem(name):
+    dot = name.rfind(".")
+    return name[:dot] if dot > 0 else name
+
+
+def cue_matcher(audio_name, folder_names):
+    """Returns the FILE test for one audio file: its name, ignoring ASCII case, or the same stem
+    when the cue names a file the folder doesn't hold (a cue written for the WAV of a FLAC)."""
+    wanted = ascii_lower(audio_name)
+    present = {ascii_lower(name) for name in folder_names}
+
+    def matches(value):
+        base = ascii_lower(value.replace("\\", "/").rsplit("/", 1)[-1])
+        if base == wanted:
+            return True
+        return base not in present and cue_stem(base) == cue_stem(wanted)
+    return matches
+
+
+def cue_tracks(whole, sheet):
+    """Splits one audio file's track into the cue sheet's tracks, each from its INDEX 01 to the
+    next one's (the last to the end of the file). Tracks starting past the end are left out."""
+    file_ms = whole.duration_ms
+    kept = [track for track in sheet.tracks if file_ms == 0 or track.start_ms < file_ms]
+    tracks = []
+    for index, track in enumerate(kept):
+        if index + 1 < len(kept):
+            end = kept[index + 1].start_ms
+            end = min(end, file_ms) if file_ms else end
+        else:
+            end = file_ms if file_ms > track.start_ms else track.start_ms
+        artist = track.performer or sheet.performer or whole.artist
+        guessed = not sheet.performer and whole.album_artist_guessed
+        tracks.append(replace(
+            whole,
+            title=track.title or cue_untitled(track.number),
+            artist=artist,
+            album_artist=sheet.performer or (artist if whole.album_artist_guessed
+                                             else whole.album_artist),
+            album=sheet.title or whole.album,
+            genre=sheet.genre or whole.genre,
+            year=parse_year(sheet.date) or whole.year,
+            disc=min(parse_number(sheet.disc), MAX_U8) or whole.disc,
+            number=track.number,
+            duration_ms=end - track.start_ms,
+            album_artist_guessed=guessed,
+            start_ms=track.start_ms,
+            cue=True,
+        ))
+    return tracks
 
 
 def parse_m3u(text):
@@ -567,7 +754,8 @@ def encode_tracks(model, strings):
         data += TRACK_RECORD.pack(strings.add(track.title), strings.add(track.path),
                                   model.track_albums[position], model.track_artists[position],
                                   model.track_genres[position], model.track_folders[position],
-                                  track.duration_ms, track.disc, track.number, 0)
+                                  track.duration_ms, track.disc, track.number,
+                                  TRACK_CUE if track.cue else 0, track.start_ms if track.cue else 0)
     return data
 
 
@@ -736,12 +924,44 @@ class MusicRoots:
         return [(root, path, prefix) for _, root, path, prefix in found]
 
 
+def folder_cues(cue_files):
+    by_folder = {}
+    for _, path, _ in cue_files:
+        by_folder.setdefault(path.parent, []).append(path)
+    return by_folder
+
+
+def visible_names(folder):
+    return [nfc(entry.name) for entry in folder.iterdir() if not entry.name.startswith(".")]
+
+
+def claiming_cue(path, cues):
+    """Returns the first cue sheet (in name order) naming this audio file for at least two
+    tracks, or None."""
+    candidates = cues.get(path.parent, [])
+    if not candidates:
+        return None
+    matches = cue_matcher(nfc(path.name), visible_names(path.parent))
+    for cue in candidates:
+        sheet = parse_cue(decode_playlist(cue.read_bytes()), matches)
+        if len(sheet.tracks) >= CUE_MINIMUM_TRACKS:
+            return sheet
+    return None
+
+
+def read_tracks(base, path, prefix, cues):
+    whole = read_track(base, path, prefix)
+    sheet = claiming_cue(path, cues)
+    return [whole] if sheet is None else cue_tracks(whole, sheet)
+
+
 def scan(root, internal=None, excluded=frozenset()):
     roots = MusicRoots(root, internal, excluded)
     tracks, failures = [], []
+    cues = folder_cues(roots.files({CUE_SUFFIX}))
     for base, path, prefix in roots.files(AUDIO_SUFFIXES):
         try:
-            tracks.append(read_track(base, path, prefix))
+            tracks.extend(read_tracks(base, path, prefix, cues))
         except Exception as error:
             failures.append(f"{music_path(prefix, path.relative_to(base))}: {error}")
     playlists = [read_playlist(base, path, prefix)
