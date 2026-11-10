@@ -33,3 +33,11 @@ InstallPower low_battery_install_power(LowBatteryReading reading)
     }
     return reading.millivolts < LOW_BATTERY_INSTALL_MV ? INSTALL_POWER_LOW : INSTALL_POWER_OK;
 }
+
+StartPower low_battery_start_power(LowBatteryReading reading)
+{
+    if (!reading.known || reading.millivolts >= LOW_BATTERY_START_MV) {
+        return START_POWER_OK;
+    }
+    return reading.usb_power ? START_POWER_CHARGE : START_POWER_REFUSE;
+}

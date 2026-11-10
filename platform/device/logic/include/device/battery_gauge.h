@@ -8,7 +8,6 @@ enum {
     BATTERY_DISPLAY_REVERSE_STEP = 10,
     BATTERY_DISPLAY_STEP_MS = 10000,
     BATTERY_DISPLAY_HOLD_MS = 30000,
-    BATTERY_BOOT_CUTOFF_MILLIVOLTS = 3400,
     BATTERY_CHARGING_MAX_PERCENT = 99,
     BATTERY_RECENT_READINGS = 8
 };
@@ -21,7 +20,6 @@ typedef struct BatteryGauge {
 
 uint32_t battery_millivolts(uint16_t raw);
 uint8_t battery_percent_for(uint32_t millivolts);
-bool battery_boot_cutoff(uint32_t millivolts, bool usb_power);
 void battery_gauge_init(BatteryGauge *gauge);
 void battery_gauge_add(BatteryGauge *gauge, uint16_t raw);
 void battery_gauge_restart(BatteryGauge *gauge);

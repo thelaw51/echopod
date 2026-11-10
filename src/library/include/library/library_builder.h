@@ -15,6 +15,8 @@ typedef struct BuilderTrack {
     uint8_t number;
     uint32_t duration_ms;
     bool album_artist_guessed;
+    uint32_t start_ms;
+    bool cue;
 } BuilderTrack;
 
 typedef struct ByteSink {

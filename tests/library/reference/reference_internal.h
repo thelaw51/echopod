@@ -10,7 +10,7 @@
 enum {
     REFERENCE_NONE = 0xFFFF,
     REFERENCE_STRING_HEADER = 8,
-    REFERENCE_TRACK_SIZE = 36,
+    REFERENCE_TRACK_SIZE = 40,
     REFERENCE_FOLDER_SIZE = 8
 };
 
@@ -25,8 +25,10 @@ typedef struct TrackRecord {
     uint16_t year;
     uint8_t disc;
     uint8_t number;
-    uint16_t guessed;
+    uint8_t guessed;
+    uint8_t cue;
     uint32_t duration_ms;
+    uint32_t start_ms;
 } TrackRecord;
 
 typedef struct FolderNode {

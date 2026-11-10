@@ -94,9 +94,19 @@ static void close_file(AudioEngine *engine)
     }
 }
 
-static bool open_track(AudioEngine *engine, const char *path, uint32_t start_ms)
+static bool same_path(const char *left, const char *right)
+{
+    size_t index = 0;
+    while (left[index] != '\0' && left[index] == right[index]) {
+        index++;
+    }
+    return left[index] == right[index];
+}
+
+static bool open_track(AudioEngine *engine, const char *path, AudioClip clip, uint32_t start_ms)
 {
     AudioTrackInfo track;
+    start_ms += clip.start_ms;
     if (!engine->config.source.open(engine->config.source.context, path, start_ms, &track)) {
         engine->refusal = (AudioRefusal){.problem = AUDIO_REFUSAL_UNREADABLE};
         return false;
@@ -116,14 +126,21 @@ static bool open_track(AudioEngine *engine, const char *path, uint32_t start_ms)
     engine->source_rate = info.sample_rate;
     engine->repeat = repeat;
     engine->decode_track = track;
+    engine->decode_clip = clip;
+    engine->end_sample =
+        clip.end_ms == 0
+            ? UINT32_MAX
+            : (uint32_t)((uint64_t)clip.end_ms * info.sample_rate / MILLISECONDS_PER_SECOND);
+    engine->at_boundary = false;
+    engine->tail_frames = 0;
     engine->holding_frame = false;
     engine->pending_frames = 0;
     engine->pending_offset = 0;
     return true;
 }
 
-static void push_segment(AudioEngine *engine, const char *path, uint32_t token, uint32_t start,
-                         uint32_t base_ms)
+static void push_segment(AudioEngine *engine, const char *path, AudioClip clip, uint32_t token,
+                         uint32_t start, uint32_t base_ms)
 {
     if (engine->segment_count == AUDIO_ENGINE_SEGMENTS) {
         for (int index = 1; index < AUDIO_ENGINE_SEGMENTS; index++) {
@@ -137,6 +154,7 @@ static void push_segment(AudioEngine *engine, const char *path, uint32_t token, 
     segment->base_ms = base_ms;
     segment->rate = engine->decode_rate;
     segment->track = engine->decode_track;
+    segment->clip = clip;
     copy_path(segment->path, path);
 }
 
@@ -153,7 +171,8 @@ static void reset_positions(AudioEngine *engine)
     engine->ramp_done = 0;
 }
 
-static bool start_track(AudioEngine *engine, const char *path, uint32_t start_ms, uint32_t token)
+static bool start_track(AudioEngine *engine, const char *path, AudioClip clip, uint32_t start_ms,
+                        uint32_t token)
 {
     close_file(engine);
     reset_positions(engine);
@@ -161,7 +180,7 @@ static bool start_track(AudioEngine *engine, const char *path, uint32_t start_ms
     engine->held[1] = 0;
     engine->stats = (AudioEngineStats){0};
     engine->failed = false;
-    if (!open_track(engine, path, start_ms)) {
+    if (!open_track(engine, path, clip, start_ms)) {
         engine->state = AUDIO_ENGINE_STOPPED;
         engine->failed = true;
         engine->segments[0] = (AudioSegment){.token = token, .rate = 0};
@@ -169,20 +188,22 @@ static bool start_track(AudioEngine *engine, const char *path, uint32_t start_ms
         return false;
     }
     use_output_rate(engine);
-    push_segment(engine, path, token, 0, start_ms);
+    push_segment(engine, path, clip, token, 0, start_ms);
     engine->state = AUDIO_ENGINE_PLAYING;
     return true;
 }
 
-bool audio_engine_play(AudioEngine *engine, const char *path, uint32_t start_ms, uint32_t token)
+bool audio_engine_play(AudioEngine *engine, const char *path, AudioClip clip, uint32_t start_ms,
+                       uint32_t token)
 {
-    return start_track(engine, path, start_ms, token);
+    return start_track(engine, path, clip, start_ms, token);
 }
 
-void audio_engine_queue_next(AudioEngine *engine, const char *path, uint32_t token)
+void audio_engine_queue_next(AudioEngine *engine, const char *path, AudioClip clip, uint32_t token)
 {
     engine->has_next = path != NULL;
     engine->next_token = token;
+    engine->next_clip = clip;
     if (path != NULL) {
         copy_path(engine->next_path, path);
     }
@@ -196,11 +217,12 @@ bool audio_engine_seek(AudioEngine *engine, uint32_t position_ms)
     AudioSegment playing = engine->segments[0];
     AudioEngineState state = engine->state;
     if (engine->segment_count > 1) {
-        audio_engine_queue_next(engine, engine->segments[1].path, engine->segments[1].token);
+        audio_engine_queue_next(engine, engine->segments[1].path, engine->segments[1].clip,
+                                engine->segments[1].token);
     } else if (engine->rate_pending) {
         engine->has_next = true;
     }
-    bool started = start_track(engine, playing.path, position_ms, playing.token);
+    bool started = start_track(engine, playing.path, playing.clip, position_ms, playing.token);
     if (started && state == AUDIO_ENGINE_PAUSED) {
         engine->state = AUDIO_ENGINE_PAUSED;
     }
@@ -376,6 +398,8 @@ static void ramp_chunk(AudioEngine *engine, int32_t *chunk, uint32_t count)
     }
 }
 
+static void cross_boundary(AudioEngine *engine);
+
 static void copy_pending(AudioEngine *engine)
 {
     int32_t chunk[WORDS_PER_FRAME * CHUNK_FRAMES];
@@ -390,6 +414,13 @@ static void copy_pending(AudioEngine *engine)
         write_chunk(engine, chunk, count);
         engine->pending_offset += count;
         engine->pending_frames -= count;
+    }
+    if (engine->pending_frames == 0 && engine->at_boundary) {
+        cross_boundary(engine);
+        if (engine->pending_frames > 0) {
+            copy_pending(engine);
+        }
+        return;
     }
     if (engine->pending_frames == 0) {
         release_frame(engine);
@@ -406,7 +437,7 @@ static void finish_decoding(AudioEngine *engine)
     }
     engine->has_next = false;
     uint32_t previous_rate = engine->source_rate;
-    if (!open_track(engine, engine->next_path, 0)) {
+    if (!open_track(engine, engine->next_path, engine->next_clip, 0)) {
         engine->ended = true;
         engine->end_at = engine->produced;
         engine->failed = true;
@@ -420,7 +451,52 @@ static void finish_decoding(AudioEngine *engine)
     if (engine->source_rate != previous_rate) {
         equalizer_set_rate(&engine->equalizer, engine->source_rate);
     }
-    push_segment(engine, engine->next_path, engine->next_token, engine->produced, 0);
+    push_segment(engine, engine->next_path, engine->next_clip, engine->next_token, engine->produced,
+                 0);
+}
+
+static void limit_to_clip(AudioEngine *engine);
+
+static bool continues_here(const AudioEngine *engine)
+{
+    return engine->has_next && engine->segment_count > 0 && engine->decode_clip.end_ms != 0 &&
+           engine->next_clip.start_ms == engine->decode_clip.end_ms &&
+           same_path(engine->next_path, engine->segments[engine->segment_count - 1].path);
+}
+
+static void cross_boundary(AudioEngine *engine)
+{
+    if (!continues_here(engine)) {
+        engine->at_boundary = false;
+        finish_decoding(engine);
+        return;
+    }
+    engine->has_next = false;
+    AudioClip clip = engine->next_clip;
+    engine->decode_clip = clip;
+    engine->end_sample =
+        clip.end_ms == 0
+            ? UINT32_MAX
+            : (uint32_t)((uint64_t)clip.end_ms * engine->source_rate / MILLISECONDS_PER_SECOND);
+    engine->at_boundary = false;
+    engine->pending_frames = engine->tail_frames;
+    engine->tail_frames = 0;
+    push_segment(engine, engine->next_path, clip, engine->next_token, engine->produced, 0);
+    limit_to_clip(engine);
+}
+
+static void limit_to_clip(AudioEngine *engine)
+{
+    uint32_t first = engine->frame.first_sample + engine->pending_offset;
+    uint32_t last = engine->frame.first_sample + engine->frame.samples;
+    if (engine->end_sample == UINT32_MAX || last <= engine->end_sample) {
+        return;
+    }
+    uint32_t keep = engine->end_sample > first ? engine->end_sample - first : 0;
+    keep = keep < engine->pending_frames ? keep : engine->pending_frames;
+    engine->tail_frames = engine->pending_frames - keep;
+    engine->pending_frames = keep;
+    engine->at_boundary = true;
 }
 
 static void decode_one(AudioEngine *engine)
@@ -452,6 +528,7 @@ static void decode_one(AudioEngine *engine)
     engine->pending_offset = skip;
     engine->pending_frames = frame.samples - skip;
     engine->stats.frames++;
+    limit_to_clip(engine);
 }
 
 static void drop_finished_segments(AudioEngine *engine)
@@ -546,7 +623,7 @@ void audio_engine_restart(AudioEngine *engine)
     }
     reset_positions(engine);
     use_output_rate(engine);
-    push_segment(engine, engine->next_path, engine->next_token, 0, 0);
+    push_segment(engine, engine->next_path, engine->next_clip, engine->next_token, 0, 0);
 }
 
 uint32_t audio_engine_rate(const AudioEngine *engine)

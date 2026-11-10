@@ -58,6 +58,7 @@ enum {
     RESCAN_PROGRESS_MS = 250,
     BATTERY_CHECK_MS = 250,
     CHARGE_LIT_MS = 5000,
+    REFUSED_START_NOTICE_MS = 2000,
     IDLE_RENDER_MS = 100,
     NUMBER_CAPACITY = 12,
     PROGRESS_TEXT_CAPACITY = 64,
@@ -175,6 +176,8 @@ typedef struct AppState {
     bool powered_off;
     bool charging;
     uint32_t charge_lit_until_ms;
+    bool refusing_start;
+    uint32_t refused_off_ms;
     HalBattery charge_battery;
 } AppState;
 
@@ -904,6 +907,22 @@ static void apply_language(Language language)
     }
 }
 
+static StartPower boot_start_power(void)
+{
+    HalBattery battery = hal_power_boot_battery();
+    LowBatteryReading reading = {
+        .known = battery.known, .millivolts = battery.millivolts, .usb_power = battery.usb_power};
+    return low_battery_start_power(reading);
+}
+
+static void refuse_start(uint32_t now_ms)
+{
+    app.refusing_start = true;
+    app.refused_off_ms = now_ms + REFUSED_START_NOTICE_MS;
+    set_display(true);
+    app_show_notice(i18n_text(STR_BOOT_BATTERY_LOW), i18n_text(STR_BOOT_BATTERY_CHARGE));
+}
+
 void app_start(void)
 {
     uint32_t now_ms = hal_clock_milliseconds();
@@ -917,6 +936,7 @@ void app_start(void)
     app.toast = (Toast){.visible = false};
     app.powered_off = false;
     app.charging = false;
+    app.refusing_start = false;
     app.frame_stable = false;
     app.key_activity = false;
     app.idle = false;
@@ -926,6 +946,11 @@ void app_start(void)
     app.battery_check_ms = now_ms;
     app.splash = (Fade){.active = false};
     app.now_ms = now_ms;
+    StartPower start_power = boot_start_power();
+    if (start_power == START_POWER_REFUSE) {
+        refuse_start(now_ms);
+        return;
+    }
     CardFilesReport files = card_files_prepare(show_card_setup);
     settings_store_load(&app.settings);
     hal_power_confirm_start(app.settings.settings.options[OPTION_POWER_ON] == POWER_ON_HOLD);
@@ -939,7 +964,8 @@ void app_start(void)
     bluetooth_link_start(&app.bluetooth, &app.toast, now_ms);
     start_screens(now_ms);
     report_card_files(files, now_ms);
-    if (hal_power_take_usb_start()) {
+    bool usb_start = hal_power_take_usb_start();
+    if (usb_start || start_power == START_POWER_CHARGE) {
         start_charging(now_ms);
     }
 }
@@ -1289,6 +1315,12 @@ void app_step(void)
     if (app.powered_off) {
         return;
     }
+    if (app.refusing_start) {
+        if (deadline_reached(hal_clock_milliseconds(), app.refused_off_ms)) {
+            power_off_now();
+        }
+        return;
+    }
     app.idle = false;
     take_computer_clock();
     if (app.music_check_requested && fade_finished(&app.splash, hal_clock_milliseconds())) {
@@ -1370,6 +1402,11 @@ bool app_charging(void)
     return app.charging;
 }
 
+bool app_refusing_start(void)
+{
+    return app.refusing_start;
+}
+
 void app_show_notice(const char *title, const char *message)
 {
     MessageConfig config = {.title = title, .message = message, .theme = current_theme()};
@@ -1389,6 +1426,9 @@ void app_show_splash(void)
 
 void app_wake(void)
 {
+    if (app.refusing_start) {
+        return;
+    }
     uint32_t now_ms = hal_clock_milliseconds();
     power_policy_wake(&app.power, now_ms);
     clock_store_wake(&app.clock, now_ms);
@@ -1404,17 +1444,23 @@ const FrameStats *app_frame_stats(void)
 
 const char *app_screen_title(void)
 {
+    if (app.refusing_start) {
+        return app.notice.screen.title;
+    }
     return top_screen()->title;
 }
 
 int app_screen_depth(void)
 {
+    if (app.refusing_start) {
+        return 0;
+    }
     return screen_stack_depth(&app.stack);
 }
 
 void app_stop(void)
 {
-    if (!app.powered_off) {
+    if (!app.powered_off && !app.refusing_start) {
         save_session();
     }
 }

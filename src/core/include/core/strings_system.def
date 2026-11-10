@@ -1,5 +1,6 @@
 STRING(STR_BOOT_CARD_FULL, "The card is full")
 STRING(STR_BOOT_BATTERY_LOW, "Battery low")
+STRING(STR_BOOT_BATTERY_CHARGE, "Plug in to charge")
 STRING(STR_BOOT_CARD_SETUP, "Setting up the card...")
 STRING(STR_RESCAN_TITLE, "Scanning library")
 STRING(STR_RESCAN_STARTING, "Starting...")

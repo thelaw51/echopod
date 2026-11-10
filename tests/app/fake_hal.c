@@ -36,6 +36,8 @@ typedef struct FakeAudio {
     HalAudioStatus status;
     char playing_path[PATH_CAPACITY];
     uint32_t play_start_ms;
+    HalAudioClip play_clip;
+    HalAudioClip queued_clip;
     int play_count;
     char queued_path[PATH_CAPACITY];
     bool has_queued;
@@ -85,6 +87,7 @@ typedef struct FakeHal {
     bool display_on;
     uint8_t brightness;
     HalBattery battery;
+    HalBattery boot_battery;
     int power_off_count;
     uint32_t now_ms;
     uint32_t now_us;
@@ -373,6 +376,16 @@ HalBattery hal_power_battery(void)
     return fake.battery;
 }
 
+void fake_hal_set_boot_battery(HalBattery battery)
+{
+    fake.boot_battery = battery;
+}
+
+HalBattery hal_power_boot_battery(void)
+{
+    return fake.boot_battery;
+}
+
 void hal_power_off(void)
 {
     fake.power_off_count++;
@@ -491,6 +504,16 @@ uint32_t fake_hal_audio_play_start(void)
     return fake.audio.play_start_ms;
 }
 
+HalAudioClip fake_hal_audio_play_clip(void)
+{
+    return fake.audio.play_clip;
+}
+
+HalAudioClip fake_hal_audio_queued_clip(void)
+{
+    return fake.audio.queued_clip;
+}
+
 int fake_hal_audio_play_count(void)
 {
     return fake.audio.play_count;
@@ -510,6 +533,7 @@ void fake_hal_audio_finish_track(void)
     fake.audio.status.token = fake.audio.queued_token;
     fake.audio.status.position_ms = 0;
     copy_path(fake.audio.playing_path, fake.audio.queued_path);
+    fake.audio.play_clip = fake.audio.queued_clip;
     fake.audio.has_queued = false;
 }
 
@@ -569,7 +593,7 @@ int fake_hal_write_count(void)
     return fake.write_count;
 }
 
-bool hal_audio_play(const char *path, uint32_t start_ms, uint32_t token)
+bool hal_audio_play(const char *path, HalAudioClip clip, uint32_t start_ms, uint32_t token)
 {
     fake.audio.play_count++;
     if (fake.audio.refused_plays > 0) {
@@ -580,6 +604,7 @@ bool hal_audio_play(const char *path, uint32_t start_ms, uint32_t token)
     }
     copy_path(fake.audio.playing_path, path);
     fake.audio.play_start_ms = start_ms;
+    fake.audio.play_clip = clip;
     fake.audio.status = (HalAudioStatus){.state = HAL_AUDIO_PLAYING,
                                          .token = token,
                                          .position_ms = start_ms,
@@ -588,9 +613,10 @@ bool hal_audio_play(const char *path, uint32_t start_ms, uint32_t token)
     return true;
 }
 
-void hal_audio_queue_next(const char *path, uint32_t token)
+void hal_audio_queue_next(const char *path, HalAudioClip clip, uint32_t token)
 {
     fake.audio.has_queued = path != NULL;
+    fake.audio.queued_clip = clip;
     if (path != NULL) {
         copy_path(fake.audio.queued_path, path);
         fake.audio.queued_token = token;

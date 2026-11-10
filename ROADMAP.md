@@ -20,6 +20,7 @@ Version 0.11.1 plays 192 kHz FLAC cleanly again, keeps the landscape clock in pl
 | Now Playing | device | Cover, progress, seek, modes, volume |
 | Queue, shuffle, repeat, Up Next | device | Shuffle Songs or Albums over lists of any size; Play Next and Add to Up Next |
 | M3U and M3U8 playlists | device | Including MusicBee's Windows paths |
+| Cue sheets | sim | A single-file album with a `.cue` lists as separate tracks that play gaplessly; in the scanner, echo-sync and the simulator, not yet heard on the player |
 | Save Up Next as a playlist, export playlists as `.m3u8` | simulator and tests | Up Next → New playlist saves the queue (up to 200 songs); hold Play on a player playlist → Export to card writes `/EchoPod Playlists/Playlist N.m3u8` with paths relative to that folder |
 | Album favorites | device | Hold Play on an album |
 | Loved tracks | simulator and tests | Hold Play on a song and choose Love, or hold Play on a song in Up Next; Favorites → Loved tracks plays them; up to 200, kept across rescans |
@@ -41,7 +42,7 @@ Version 0.11.1 plays 192 kHz FLAC cleanly again, keeps the landscape clock in pl
 | Item | Status |
 |---|---|
 | An assigned USB product ID from pid.codes, replacing the shared test ID | todo |
-| Refuse to start on an almost empty battery | todo |
+| Refuse to start on an almost empty battery | done in the simulator; not yet tried on a player |
 | Check the 4.4 mm balanced output on hardware | done (tester report) |
 | Check the post-0.1.0 fixes and audiobook bookmarks on hardware | in progress |
 | Faster cover decoding on the player (about 0.5 s per album) | todo |

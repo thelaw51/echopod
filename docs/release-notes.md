@@ -9,13 +9,17 @@
 - **Save Up Next as a playlist, and export playlists for a computer.** Up Next has a New playlist row above the playing song that saves the queue, up to 200 songs. Hold ▶ on a playlist made on the player and choose Export to card to write it to `EchoPod Playlists/Playlist N.m3u8`, with paths relative to that folder, so MusicBee and other players on a computer can open it. Checked in the simulator, not yet on a player.
 - **Loved tracks.** Hold ▶ on a song and choose Love, or, from Now Playing, open Up Next with ≡ and hold ▶ on the song. Music → Favorites now starts with a Loved tracks row that plays your loved songs like any list. Up to 200 songs, kept in `/.echo/loved.bin` and found again by path after a rescan.
 
+- **Cue sheets.** An album ripped to one FLAC, WAV or other file with a `.cue` next to it now shows as its separate tracks, with the cue's titles and performers, and plays each from its start to the next track's, gaplessly. The library format moves to version 4, so the player rebuilds the library once after the update (echo-sync writes version 4 too).
+
 ### Safer installs
 
 - **An update or the way back to FiiO no longer starts on a low battery.** Installs run after you eject or unplug, so they could start on battery. On battery the player now waits a few seconds for a steady reading and refuses below about 30 % (3.71 V), with "Battery too low. Plug in USB, then eject the drives again." On USB power it installs as before. Diagnostics → Last update shows the refusal as code 8.
 
 ### Fixed
 
+- **The player no longer starts on an almost empty battery.** Turned on below about 7 % (3.55 V) without a charger, it shows "Battery low. Plug in to charge" for 2 seconds and switches off before it touches the card. Before, it started at 3.40 V and then shut itself down at 3.45 V a moment later, writing to the card on the way. The start level sits 100 mV above the running cut-off, so a battery that has just run flat and recovered a little doesn't start, stop and start again. With a charger plugged in, it opens the charge screen instead; hold Power for 2 seconds to use it while it charges.
 - **Settings from 0.9.1 or earlier carry over again.** Since 0.10.0, a player updated straight from 0.9.1 or earlier started from default settings: those versions wrote a 24-byte settings file and the newer firmware rejected anything under 32 bytes. Their brightness, volume, language, orientation and the rest now load, and are saved again in the current format.
+- **"No library" points at the rescan.** With a card but no library, the Music lists told you to run the PC indexer, a tool the player hasn't needed since it learned to build its own library. They now say Settings > Library > Rescan library, in every language.
 
 ## 0.11.1
 
