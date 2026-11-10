@@ -23,6 +23,7 @@
 
 ### Changed
 
+- **Bluetooth, Equalizer and Date & time share their memory.** Only one of them can be open at a time. If one is still open under Settings (for example the Equalizer opened from Now Playing, then Settings with ≡ held), opening another shows "Close Equalizer first": go back to it and close it. This frees RAM for new features.
 - **English only.** Settings → System no longer has a Language row, and the player ships the English text alone. A language saved by an earlier build is ignored.
 - **Fewer tag lyrics formats.** Synced MP3 `SYLT` lyrics and M4A lyrics are no longer read. MP3 `USLT`, FLAC, Ogg and Opus lyrics and `.lrc` files work as before.
 

@@ -171,17 +171,12 @@ static void build_settings(AppScreens *screens, AppScreensContext context)
         .power = context.power,
         .toast = context.toast,
         .rescan_requested = context.rescan_requested,
-        .bluetooth = &screens->bluetooth,
-        .equalizer = &screens->equalizer,
-        .date_time = &screens->date_time,
+        .bluetooth = cold_screens_entry(&screens->cold, COLD_ENTRY_BLUETOOTH),
+        .equalizer = cold_screens_entry(&screens->cold, COLD_ENTRY_EQUALIZER),
+        .date_time = cold_screens_entry(&screens->cold, COLD_ENTRY_DATE_TIME),
         .folders = &screens->folders,
         .sleep_option = 0,
     };
-    DateTimeConfig date_time = {.clock = context.clock,
-                                .store = context.settings,
-                                .toast = context.toast,
-                                .theme = context.theme};
-    date_time_screen_init(&screens->date_time, date_time);
     FoldersConfig folders = {.toast = context.toast,
                              .rescan_requested = context.rescan_requested,
                              .theme = context.theme};
@@ -245,6 +240,20 @@ static void build_home(AppScreens *screens, AppScreensContext context)
     menu_screen_init(&screens->home, home);
 }
 
+static void init_cold(AppScreens *screens, AppScreensContext context)
+{
+    ColdScreensConfig cold = {
+        .bluetooth = context.bluetooth,
+        .equalizer = context.equalizer,
+        .clock = context.clock,
+        .settings = context.settings,
+        .theme = context.theme,
+        .toast = context.toast,
+        .stack = context.stack,
+    };
+    cold_screens_init(&screens->cold, cold);
+}
+
 Screen *app_screens_init(AppScreens *screens, AppScreensContext context)
 {
     const Theme *theme = context.theme;
@@ -265,11 +274,10 @@ Screen *app_screens_init(AppScreens *screens, AppScreensContext context)
                                     .covers = context.covers,
                                     .up_next = up_next_screen_init(&screens->up_next, up_next),
                                     .options = context.settings->settings.options};
-    EqualizerConfig equalizer = {
-        .store = context.equalizer, .toast = context.toast, .theme = theme};
-    now_playing.equalizer = equalizer_screen_init(&screens->equalizer, equalizer);
+    init_cold(screens, context);
+    now_playing.open_equalizer = cold_screens_open;
+    now_playing.equalizer = cold_screens_entry(&screens->cold, COLD_ENTRY_EQUALIZER);
     message_screen_init(&screens->no_library, no_library);
-    bluetooth_screen_init(&screens->bluetooth, context.bluetooth, theme);
     now_playing_screen_init(&screens->now_playing, now_playing);
     build_music(screens, context);
     build_settings(screens, context);

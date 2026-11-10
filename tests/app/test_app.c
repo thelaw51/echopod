@@ -582,6 +582,40 @@ static void the_equalizer_opens_from_settings_and_is_applied(void)
     CHECK(title_is("Settings"));
 }
 
+static bool toast_is(const char *expected);
+
+static void bluetooth_waits_while_the_equalizer_from_now_playing_is_open(void)
+{
+    start_app_with_library();
+    play_first_album_track();
+    hold(KEY_MENU);
+    CHECK(title_is("Equalizer"));
+    hold(KEY_MENU);
+    CHECK(title_is("Settings"));
+    move_down(SETTINGS_BLUETOOTH_INDEX);
+    tap(KEY_PLAY);
+    CHECK(title_is("Settings"));
+    CHECK(toast_is("Close Equalizer first"));
+    tap(KEY_BACK);
+    CHECK(title_is("Equalizer"));
+}
+
+static void bluetooth_and_the_equalizer_take_turns_from_settings(void)
+{
+    start_app_with_library();
+    open_top_setting(SETTINGS_EQUALIZER_INDEX);
+    CHECK(title_is("Equalizer"));
+    tap(KEY_BACK);
+    move_up(1);
+    tap(KEY_PLAY);
+    CHECK(title_is("Bluetooth"));
+    tap(KEY_BACK);
+    move_down(1);
+    tap(KEY_PLAY);
+    CHECK(title_is("Equalizer"));
+    CHECK(app_toast_text() == NULL);
+}
+
 static void gain_is_applied(void)
 {
     start_app_with_library();
@@ -841,8 +875,6 @@ static void the_screen_starts_in_the_saved_orientation(void)
     CHECK_EQUAL(HAL_DISPLAY_PORTRAIT, fake_hal_display_rotation());
     CHECK(drew_the_bottom_of_a_portrait_screen());
 }
-
-static bool toast_is(const char *expected);
 
 static void english_is_requested_before_the_saved_language_is_known(void)
 {
@@ -2880,6 +2912,20 @@ static void set_now_opens_the_date_and_time_at_the_build_date(void)
     CHECK_EQUAL(1, fake_hal_time().day);
 }
 
+static void the_equalizer_waits_while_the_date_and_time_from_the_prompt_is_open(void)
+{
+    start_with_new_firmware(chip_on(2026, 1, 14));
+    wait_ms(SPLASH_MS);
+    tap(KEY_PLAY);
+    CHECK(title_is("Date & time"));
+    hold(KEY_MENU);
+    CHECK(title_is("Settings"));
+    move_down(SETTINGS_EQUALIZER_INDEX);
+    tap(KEY_PLAY);
+    CHECK(title_is("Settings"));
+    CHECK(toast_is("Close Date & time first"));
+}
+
 static void a_new_firmware_does_not_ask_when_the_clock_is_set(void)
 {
     start_with_new_firmware(chip_on(2026, 11, 5));
@@ -2996,6 +3042,8 @@ int main(void)
         TEST_CASE(settings_choose_shuffle_and_repeat),
         TEST_CASE(brightness_is_applied_and_saved),
         TEST_CASE(the_equalizer_opens_from_settings_and_is_applied),
+        TEST_CASE(bluetooth_waits_while_the_equalizer_from_now_playing_is_open),
+        TEST_CASE(bluetooth_and_the_equalizer_take_turns_from_settings),
         TEST_CASE(gain_is_applied),
         TEST_CASE(saved_settings_are_restored_at_start),
         TEST_CASE(the_orientation_setting_is_saved),
@@ -3108,6 +3156,7 @@ int main(void)
         TEST_CASE(the_listen_history_has_no_time_while_the_clock_predates_the_firmware),
         TEST_CASE(a_new_firmware_asks_once_for_the_clock_after_the_start_up_screen),
         TEST_CASE(set_now_opens_the_date_and_time_at_the_build_date),
+        TEST_CASE(the_equalizer_waits_while_the_date_and_time_from_the_prompt_is_open),
         TEST_CASE(a_new_firmware_does_not_ask_when_the_clock_is_set),
         TEST_CASE(back_leaves_a_setting_then_its_group_then_settings),
         TEST_CASE(settings_and_its_groups_keep_their_selected_rows),

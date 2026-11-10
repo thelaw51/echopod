@@ -68,6 +68,16 @@ int screen_stack_depth(const ScreenStack *stack)
     return stack->depth;
 }
 
+bool screen_stack_holds(const ScreenStack *stack, const Screen *screen)
+{
+    for (int index = 0; index < stack->depth; index++) {
+        if (stack->screens[index] == screen) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool screen_stack_apply(ScreenStack *stack, ScreenAction action, uint32_t now_ms)
 {
     if (!change(stack, action)) {

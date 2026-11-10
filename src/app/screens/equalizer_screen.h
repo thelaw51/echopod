@@ -46,4 +46,5 @@ typedef struct EqualizerScreen {
 Screen *equalizer_screen_init(EqualizerScreen *equalizer, EqualizerConfig config);
 ScreenAction equalizer_screen_open(void *context);
 const char *equalizer_screen_summary(const void *context);
+const char *equalizer_screen_config_summary(const EqualizerConfig *config);
 const char *equalizer_screen_preset_name(EqualizerPreset preset);
