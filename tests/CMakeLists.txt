@@ -69,12 +69,15 @@ echo_add_unit_test(NAME test_equalizer
 echo_add_unit_test(NAME test_equalizer_file SOURCES sound/test_equalizer_file.c LIBRARIES echo_sound)
 echo_add_unit_test(NAME test_equalizer_text SOURCES sound/test_equalizer_text.c LIBRARIES echo_sound)
 
-foreach(library_test block_cache library library_browse favorites covers sort_key track_fields playlist_reader music_fingerprint music_folders user_playlist)
+foreach(library_test block_cache library library_browse favorites covers sort_key track_fields playlist_reader cue_sheet music_fingerprint music_folders user_playlist)
     echo_add_unit_test(NAME test_${library_test}
         SOURCES library/test_${library_test}.c
         LIBRARIES echo_library_fixtures
     )
 endforeach()
+target_compile_definitions(test_user_playlist PRIVATE
+    ECHO_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
+)
 add_library(echo_reference_builder STATIC
     library/reference/reference_builder.c
     library/reference/reference_builder_encode.c
@@ -150,6 +153,9 @@ echo_add_unit_test(NAME test_player
     SOURCES app/test_player.c app/fake_hal.c
     LIBRARIES echo_app echo_library_fixtures
     PRIVATE_INCLUDES ${PROJECT_SOURCE_DIR}/src/app
+)
+target_compile_definitions(test_player PRIVATE
+    ECHO_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
 )
 echo_add_unit_test(NAME test_listen_history
     SOURCES app/test_listen_history.c app/fake_hal.c
@@ -521,6 +527,20 @@ if(EXISTS ${ECHO_TOOLS_PYTHON})
             -DEXPECTED=${CMAKE_CURRENT_SOURCE_DIR}/fixtures/scan_music.db
             -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/scan_music.db
             -P ${CMAKE_CURRENT_SOURCE_DIR}/check_library_index.cmake
+    )
+    add_test(NAME cue_music_up_to_date
+        COMMAND ${CMAKE_COMMAND}
+            -DPYTHON=${ECHO_TOOLS_PYTHON}
+            -DINDEXER=${PROJECT_SOURCE_DIR}/tools/library_index.py
+            -DMUSIC=${CMAKE_CURRENT_SOURCE_DIR}/fixtures/cue_music
+            -DEXPECTED=${CMAKE_CURRENT_SOURCE_DIR}/fixtures/cue_music.db
+            -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/cue_music.db
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/check_library_index.cmake
+    )
+    add_test(NAME cue_fixture_up_to_date
+        COMMAND ${ECHO_TOOLS_PYTHON} ${PROJECT_SOURCE_DIR}/tools/cue_fixture.py
+            --output ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/cue_music
+            --check
     )
     add_test(NAME scan_music_folders_up_to_date
         COMMAND ${CMAKE_COMMAND}

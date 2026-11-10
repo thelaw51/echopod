@@ -1,9 +1,12 @@
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "check.h"
 #include "fake_hal.h"
 #include "fixture_library.h"
 #include "hal/storage.h"
+#include "memory_source.h"
 #include "playback/resume_state.h"
 #include "player.h"
 
@@ -24,6 +27,17 @@ static const char HELP_PATH[] = "/Various Artists/The Best of Something/01 - Hel
 static const char ARMY_OF_ME_PATH[] = "/Various Artists/The Best of Something/02 - Army of Me.flac";
 
 static FixtureLibrary fixture;
+static Library cue_library;
+static MemorySource cue_memory;
+static uint8_t cue_bytes[4096];
+
+enum {
+    CUE_ALBUM = 3,
+    CUE_OPENING = 5,
+    CUE_SECOND = 6
+};
+
+static const char CUE_IMAGE_PATH[] = "/Album/Image.wav";
 static Player player;
 
 static BrowseQuery back_in_black(void)
@@ -51,6 +65,63 @@ static Player *playing(uint32_t position)
 static bool path_is(const char *actual, const char *expected)
 {
     return actual != NULL && strcmp(expected, actual) == 0;
+}
+
+static Player *playing_the_cue_album(uint32_t position)
+{
+    FILE *file = fopen(ECHO_FIXTURE_DIR "/cue_music.db", "rb");
+    CHECK(file != NULL);
+    size_t size = file == NULL ? 0 : fread(cue_bytes, 1, sizeof cue_bytes, file);
+    if (file != NULL) {
+        fclose(file);
+    }
+    cue_memory = (MemorySource){.bytes = cue_bytes, .size = (uint32_t)size};
+    CHECK_EQUAL(LIBRARY_OK, library_open(&cue_library, memory_source(&cue_memory), (uint32_t)size));
+    fake_hal_reset();
+    player_init(&player, &cue_library);
+    BrowseQuery album = {.kind = BROWSE_ALBUM_TRACKS,
+                         .group = LIBRARY_ALBUMS,
+                         .subject = CUE_ALBUM,
+                         .artist = LIBRARY_NONE};
+    CHECK(player_play_list(&player, album, position, SEED));
+    return &player;
+}
+
+static void a_cue_track_plays_its_part_of_the_image(void)
+{
+    Player *started = playing_the_cue_album(0);
+    CHECK(path_is(fake_hal_audio_playing_path(), CUE_IMAGE_PATH));
+    HalAudioClip clip = fake_hal_audio_play_clip();
+    CHECK_EQUAL(0u, clip.start_ms);
+    CHECK_EQUAL(1000u, clip.end_ms);
+    CHECK_EQUAL(0u, fake_hal_audio_play_start());
+    PlayerStatus status = player_status(started);
+    CHECK_EQUAL(CUE_OPENING, status.track);
+    CHECK_EQUAL(1000u, status.duration_ms);
+}
+
+static void the_next_cue_track_is_queued_as_the_following_part(void)
+{
+    Player *started = playing_the_cue_album(0);
+    CHECK(path_is(fake_hal_audio_queued_path(), CUE_IMAGE_PATH));
+    HalAudioClip next = fake_hal_audio_queued_clip();
+    CHECK_EQUAL(1000u, next.start_ms);
+    CHECK_EQUAL(2200u, next.end_ms);
+    fake_hal_audio_finish_track();
+    player_update(started, 100);
+    CHECK_EQUAL(CUE_SECOND, player_status(started).track);
+    next = fake_hal_audio_queued_clip();
+    CHECK_EQUAL(2200u, next.start_ms);
+    CHECK_EQUAL(3000u, next.end_ms);
+}
+
+static void restarting_a_cue_track_seeks_to_its_own_start(void)
+{
+    Player *started = playing_the_cue_album(1);
+    fake_hal_audio_set_position(LATE_IN_TRACK_MS / 10);
+    player_seek(started, 0);
+    CHECK_EQUAL(0u, fake_hal_audio_last_seek());
+    CHECK_EQUAL(1000u, fake_hal_audio_play_clip().start_ms);
 }
 
 static void playing_a_list_starts_the_selected_track(void)
@@ -561,6 +632,9 @@ static void play_after_a_release_starts_the_output_again(void)
 int main(void)
 {
     static const TestCase cases[] = {
+        TEST_CASE(a_cue_track_plays_its_part_of_the_image),
+        TEST_CASE(the_next_cue_track_is_queued_as_the_following_part),
+        TEST_CASE(restarting_a_cue_track_seeks_to_its_own_start),
         TEST_CASE(playing_a_list_starts_the_selected_track),
         TEST_CASE(the_status_carries_the_playing_tracks_format),
         TEST_CASE(the_format_waits_for_the_audio_to_reach_the_track),

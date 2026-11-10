@@ -1,14 +1,15 @@
 #include <stddef.h>
 
 #include "builder_internal.h"
+#include "library/library.h"
 #include "library/sort_key.h"
 
 enum {
     HEADER_SIZE = 128,
     SECTION_COUNT = 10,
-    VERSION = 3,
+    VERSION = LIBRARY_VERSION,
     ALIGNMENT = 4,
-    TRACK_RECORD = 24,
+    TRACK_RECORD = 28,
     ALBUM_RECORD = 16,
     GROUP_RECORD = 12,
     FOLDER_RECORD = 16,
@@ -351,7 +352,8 @@ static bool write_tracks(Encode *encode)
         put_u32(writer, row.duration_ms);
         put_byte(writer, row.disc);
         put_byte(writer, row.number);
-        put_u16(writer, 0);
+        put_u16(writer, row.cue ? LIBRARY_TRACK_CUE : 0);
+        put_u32(writer, row.start_ms);
     }
     return true;
 }

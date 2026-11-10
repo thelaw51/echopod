@@ -150,6 +150,10 @@ bool user_playlist_track_key(const Library *library, uint16_t track, uint32_t *k
         start++;
     }
     *key = hash_update(HASH_START, start, text_length(start));
+    if (record.cue) {
+        uint8_t part[2] = {'#', record.number};
+        *key = hash_update(*key, part, sizeof part);
+    }
     return true;
 }
 

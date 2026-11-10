@@ -77,6 +77,7 @@ typedef struct NowPlayingConfig {
 } NowPlayingConfig;
 
 typedef struct NowPlayingLyrics {
+    uint32_t offset_ms;
     Lyrics lyrics;
     bool ready;
     int current;

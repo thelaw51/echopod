@@ -9,7 +9,7 @@ enum {
     SECTION_COUNT_FIELD = 6,
     SECTION_TABLE = 8,
     SECTION_ENTRY_SIZE = 12,
-    TRACK_SIZE = 24,
+    TRACK_SIZE = 28,
     ALBUM_SIZE = 16,
     GROUP_SIZE = 12,
     FOLDER_SIZE = 16,
@@ -155,6 +155,8 @@ bool library_read_track(const Library *library, uint32_t index, LibraryTrack *tr
         .duration_ms = u32_at(record, 16),
         .disc = record[20],
         .number = record[21],
+        .cue = (u16_at(record, 22) & LIBRARY_TRACK_CUE) != 0,
+        .start_ms = u32_at(record, 24),
     };
     return true;
 }

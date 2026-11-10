@@ -1,6 +1,10 @@
+#include <stdio.h>
+
 #include "check.h"
+#include "core/hash.h"
 #include "fixture_library.h"
 #include "library/user_playlist.h"
+#include "memory_source.h"
 
 static FixtureLibrary fixture;
 static UserPlaylist playlist;
@@ -17,6 +21,25 @@ static uint32_t key_of(const Library *library, uint16_t track)
     uint32_t key = 0;
     CHECK(user_playlist_track_key(library, track, &key));
     return key;
+}
+
+static void cue_tracks_of_one_image_get_their_own_keys(void)
+{
+    static uint8_t bytes[4096];
+    FILE *file = fopen(ECHO_FIXTURE_DIR "/cue_music.db", "rb");
+    CHECK(file != NULL);
+    size_t size = file == NULL ? 0 : fread(bytes, 1, sizeof bytes, file);
+    if (file != NULL) {
+        fclose(file);
+    }
+    MemorySource memory = {.bytes = bytes, .size = (uint32_t)size};
+    Library library;
+    CHECK_EQUAL(LIBRARY_OK, library_open(&library, memory_source(&memory), (uint32_t)size));
+    uint32_t opening = key_of(&library, 5);
+    uint32_t second = key_of(&library, 6);
+    CHECK(opening != second);
+    CHECK(opening != hash_update(HASH_START, "Album/Image.wav", 15));
+    CHECK_EQUAL(hash_update(HASH_START, "Album/Bonus.wav", 15), key_of(&library, 0));
 }
 
 static void adding_keeps_the_order_and_removing_closes_the_gap(void)
@@ -146,6 +169,7 @@ int main(void)
 {
     static const TestCase cases[] = {
         TEST_CASE(adding_keeps_the_order_and_removing_closes_the_gap),
+        TEST_CASE(cue_tracks_of_one_image_get_their_own_keys),
         TEST_CASE(a_full_playlist_refuses_more),
         TEST_CASE(an_empty_slot_takes_no_tracks),
         TEST_CASE(a_slot_survives_a_round_trip),

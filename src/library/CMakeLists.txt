@@ -23,6 +23,7 @@ add_library(echo_library_scan STATIC
     builder_sort.c
     builder_store.c
     cover_build.c
+    cue_sheet.c
     library_builder.c
     library_builder_albums.c
     library_builder_encode.c

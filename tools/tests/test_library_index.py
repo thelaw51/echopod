@@ -15,7 +15,7 @@ from library_fixture import FIXTURE_TRACKS as SAMPLE_TRACKS
 
 HEADER_SIZE = 128
 SECTION_ENTRY = struct.Struct("<IIHH")
-TRACK_RECORD = struct.Struct("<IIHHHHIBBH")
+TRACK_RECORD = struct.Struct("<IIHHHHIBBHI")
 ALBUM_RECORD = struct.Struct("<IHHHHHH")
 GROUP_RECORD = struct.Struct("<IIHH")
 FOLDER_RECORD = struct.Struct("<IHHIHH")
@@ -355,11 +355,11 @@ class EncodeLibraryTest(unittest.TestCase):
 
     def test_the_header_identifies_the_format(self):
         magic, version, sections = struct.unpack_from("<4sHH", self.data, 0)
-        self.assertEqual((b"EMDB", 3, 10), (magic, version, sections))
+        self.assertEqual((b"EMDB", 4, 10), (magic, version, sections))
         self.assertEqual(HEADER_SIZE, self.section(0)[0])
 
     def test_sections_declare_their_counts_and_record_sizes(self):
-        expected = [(8, 24), (5, 16), (4, 12), (4, 12), (4, 12)]
+        expected = [(8, 28), (5, 16), (4, 12), (4, 12), (4, 12)]
         for number, (count, size) in enumerate(expected):
             _, actual_count, actual_size, _ = self.section(number)
             self.assertEqual((count, size), (actual_count, actual_size))
@@ -528,6 +528,71 @@ class UnicodeFormTest(unittest.TestCase):
             playlist = library_index.read_playlist(root, path)
         self.assertEqual("Lists R\u00f3s", playlist.folder)
         self.assertEqual(["Bj\u00f6rk/Homogenic/01 - Hunter.flac"], playlist.entries)
+
+
+def cue_tracks_for(text, name="a.wav", names=("a.wav",)):
+    return library_index.parse_cue(text, library_index.cue_matcher(name, names)).tracks
+
+
+class CueSheetTest(unittest.TestCase):
+    def test_an_album_reads_its_fields_and_tracks(self):
+        sheet = library_index.parse_cue(
+            'REM GENRE Rock\nREM DATE 1999\nPERFORMER "Band"\nTITLE "Album"\n'
+            'FILE "a.wav" WAVE\nTRACK 01 AUDIO\nTITLE "One"\nINDEX 01 00:00:00\n'
+            'TRACK 02 AUDIO\nPERFORMER "Guest"\nINDEX 00 03:58:30\nINDEX 01 04:00:00\n',
+            library_index.cue_matcher("a.wav", ["a.wav"]))
+        self.assertEqual(("Album", "Band", "Rock", "1999"),
+                         (sheet.title, sheet.performer, sheet.genre, sheet.date))
+        self.assertEqual([(1, 0, "One", ""), (2, 240000, "", "Guest")],
+                         [(t.number, t.start_ms, t.title, t.performer) for t in sheet.tracks])
+
+    def test_frames_round_to_the_nearest_millisecond(self):
+        self.assertEqual([13, 27, 1000], [library_index.cue_frames_to_ms(f) for f in (1, 2, 75)])
+        self.assertEqual((120 * 60 + 30) * 75 + 74, library_index.cue_frames("120:30:74"))
+        self.assertIsNone(library_index.cue_frames("12:30"))
+        self.assertIsNone(library_index.cue_frames("01:02:03x"))
+
+    def test_a_track_without_index_01_is_left_out(self):
+        tracks = cue_tracks_for('FILE "a.wav" WAVE\nTRACK 01 AUDIO\nINDEX 01 00:00:00\n'
+                                'TRACK 02 AUDIO\nINDEX 00 01:00:00\n'
+                                'TRACK 03 AUDIO\nINDEX 01 02:00:00\n')
+        self.assertEqual([1, 3], [track.number for track in tracks])
+
+    def test_only_tracks_under_the_matching_file_are_read(self):
+        text = ('FILE "d1.flac" WAVE\nTRACK 01 AUDIO\nINDEX 01 00:00:00\n'
+                'FILE "d2.flac" WAVE\nTRACK 02 AUDIO\nINDEX 01 00:00:00\n'
+                'TRACK 03 AUDIO\nINDEX 01 00:02:00\n')
+        names = ("d1.flac", "d2.flac")
+        self.assertEqual([2, 3], [t.number for t in cue_tracks_for(text, "d2.flac", names)])
+        self.assertEqual([1], [t.number for t in cue_tracks_for(text, "d1.flac", names)])
+
+    def test_a_bom_crlf_and_windows_1252_are_read(self):
+        utf8 = "\ufeffTITLE \"Caf\u00e9\"\r\nFILE a.wav WAVE\r\nTRACK 1 AUDIO\r\nINDEX 01 0:00:00\r\n"
+        sheet = library_index.parse_cue(library_index.decode_playlist(utf8.encode("utf-8")),
+                                        library_index.cue_matcher("a.wav", ["a.wav"]))
+        self.assertEqual("Caf\u00e9", sheet.title)
+        self.assertEqual(1, len(sheet.tracks))
+        cp1252 = 'PERFORMER "Bj\xf6rk"\n'.encode("latin-1")
+        sheet = library_index.parse_cue(library_index.decode_playlist(cp1252), lambda name: True)
+        self.assertEqual("Bj\u00f6rk", sheet.performer)
+
+    def test_the_old_extension_matches_only_when_that_file_is_gone(self):
+        text = 'FILE "a.wav" WAVE\nTRACK 01 AUDIO\nINDEX 01 00:00:00\n'
+        self.assertEqual(1, len(cue_tracks_for(text, "a.flac", ["a.flac"])))
+        self.assertEqual(0, len(cue_tracks_for(text, "a.flac", ["a.flac", "A.WAV"])))
+        self.assertEqual(1, len(cue_tracks_for('FILE "C:\\\\rip\\\\A.WAV" WAVE\nTRACK 1 AUDIO\n'
+                                               'INDEX 01 00:00:00\n')))
+
+    def test_tracks_end_where_the_next_starts_and_at_the_end_of_the_file(self):
+        whole = library_index.TrackInfo("x/a.wav", "a", "Artist", "Artist", "x", "G", 0, 1, 0,
+                                        100000, album_artist_guessed=True)
+        sheet = library_index.CueSheet(tracks=[library_index.CueTrack(1, 0, "One"),
+                                               library_index.CueTrack(2, 60000),
+                                               library_index.CueTrack(3, 150000)])
+        tracks = library_index.cue_tracks(whole, sheet)
+        self.assertEqual([(0, 60000, "One"), (60000, 40000, "Track 02")],
+                         [(t.start_ms, t.duration_ms, t.title) for t in tracks])
+        self.assertTrue(all(t.cue and t.album_artist_guessed for t in tracks))
 
 
 if __name__ == "__main__":
