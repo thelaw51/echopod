@@ -53,6 +53,6 @@ target_link_libraries(echo_library_scan
     PRIVATE echo_options
 )
 if(CMAKE_CROSSCOMPILING)
-    set_source_files_properties(cue_sheet.c library_scan.c playlist_reader.c PROPERTIES COMPILE_OPTIONS -Os)
+    set_source_files_properties(cue_sheet.c library_scan.c playlist_reader.c smart_list.c PROPERTIES COMPILE_OPTIONS -Os)
 endif()
 target_link_libraries(echo_library PRIVATE echo_lto)

@@ -55,4 +55,5 @@ target_link_libraries(echo_app
 )
 if(CMAKE_CROSSCOMPILING)
     set_source_files_properties(scrobbler_log.c PROPERTIES COMPILE_OPTIONS -fno-lto)
+    set_source_files_properties(smart_lists.c smart_store.c PROPERTIES COMPILE_OPTIONS -Os)
 endif()
