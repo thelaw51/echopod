@@ -9,6 +9,8 @@
 - **Loved tracks.** Hold ▶ on a song and choose Love, or, from Now Playing, open Up Next with ≡ and hold ▶ on the song. Music → Favorites now starts with a Loved tracks row that plays your loved songs like any list. Up to 200 songs, kept in `/.echo/loved.bin` and found again by path after a rescan.
 - **Most Played, Recently Played and Recently Added.** Three new lists at the end of Music, up to 100 songs each. The first two count the songs you listen to (Last.fm's rule: over 30 s, and half the song or 4 minutes), need Listen history on, and survive a rescan. Recently Added goes by the files' modified dates on the card. Each plays like a playlist, with Shuffle all, Play Next and Add to Up Next.
 
+- **Cue sheets.** An album ripped to one FLAC, WAV or other file with a `.cue` next to it now shows as its separate tracks, with the cue's titles and performers, and plays each from its start to the next track's, gaplessly. The library format moves to version 4, so the player rebuilds the library once after the update (echo-sync writes version 4 too).
+
 ### Safer installs
 
 - **An update or the way back to FiiO no longer starts on a low battery.** Installs run after you eject or unplug, so they could start on battery. On battery the player now waits a few seconds for a steady reading and refuses below about 30 % (3.71 V), with "Battery too low. Plug in USB, then eject the drives again." On USB power it installs as before. Diagnostics → Last update shows the refusal as code 8.

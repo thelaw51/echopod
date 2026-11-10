@@ -20,6 +20,7 @@ Version 0.11.1 plays 192 kHz FLAC cleanly again, keeps the landscape clock in pl
 | Now Playing | device | Cover, progress, seek, modes, volume |
 | Queue, shuffle, repeat, Up Next | device | Shuffle Songs or Albums over lists of any size; Play Next and Add to Up Next |
 | M3U and M3U8 playlists | device | Including MusicBee's Windows paths |
+| Cue sheets | sim | A single-file album with a `.cue` lists as separate tracks that play gaplessly; in the scanner, echo-sync and the simulator, not yet heard on the player |
 | Album favorites | device | Hold Play on an album |
 | Loved tracks | simulator and tests | Hold Play on a song and choose Love, or hold Play on a song in Up Next; Favorites → Loved tracks plays them; up to 200, kept across rescans |
 | Most Played, Recently Played, Recently Added | sim | Up to 100 songs each, from listens (kept by path in `/.echo/plays.bin`) and file dates; works in the simulator, not yet checked on the player |

@@ -8,7 +8,7 @@
 
 static const char *const AUDIO_SUFFIXES[] = {".flac", ".ogg", ".opus", ".mp3", ".m4a",
                                              ".wav",  ".wma", ".ape",  ".dsf", ".dff"};
-static const char *const PLAYLIST_SUFFIXES[] = {".m3u", ".m3u8"};
+static const char *const PLAYLIST_SUFFIXES[] = {".m3u", ".m3u8", ".cue"};
 static const char *const ART_STEMS[] = {"cover", "folder", "front", "albumart"};
 static const char *const ART_SUFFIXES[] = {".jpg", ".jpeg", ".png"};
 static const char SYSTEM_FOLDER[] = "System Volume Information";
