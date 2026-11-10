@@ -92,6 +92,8 @@ void fake_hal_set_boot_battery(HalBattery battery);
 void fake_hal_set_time(HalTime time);
 int fake_hal_time_read_count(void);
 int fake_hal_time_write_count(void);
+int fake_hal_rescan_code_held(void);
+int fake_hal_rescan_code_loads(void);
 HalTime fake_hal_time(void);
 int fake_hal_power_off_count(void);
 void fake_hal_set_usb_start(bool started);

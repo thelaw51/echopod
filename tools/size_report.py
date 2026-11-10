@@ -18,6 +18,7 @@ CODE_WINDOW = 0x2666C
 LOADED_LIMIT = 437600
 OVERLAY_CAPACITY = 0x15000
 RESIDENT_CAPACITY = 0x5E00
+COLD_CAPACITY = 0x8000
 USB_OVERLAY_IMAGE_CAPACITY = 0x10000
 CODE_SECTIONS = (".code",)
 RAM_SECTIONS = (".data", ".bss", ".noinit")
@@ -185,6 +186,8 @@ def summary(device_map, overlay_map=None, usb_overlay_map=None):
              limit_line("loaded total (code + .data + .bss)", code + data + bss, LOADED_LIMIT)]
     if ".resident" in sizes:
         lines.append(limit_line("resident tables", sizes[".resident"], RESIDENT_CAPACITY))
+    if ".cold" in sizes:
+        lines.append(limit_line("cold code", sizes[".cold"], COLD_CAPACITY))
     if overlay_map is not None:
         overlay = output_sizes(overlay_map).get(".overlay", 0)
         lines.append(limit_line("rescan overlay", overlay, OVERLAY_CAPACITY))

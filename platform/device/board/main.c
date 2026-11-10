@@ -95,6 +95,7 @@ static void run_usb_session(void)
     if (usb != NULL) {
         outcome = usb->storage(usb_session_shared());
     }
+    board_cold_load();
     if (outcome.card_changed) {
         storage_reset();
         app_start();
@@ -116,6 +117,7 @@ static void run_dac_session(void)
     if (usb != NULL) {
         usb->dac(usb_session_shared());
     }
+    board_cold_load();
     app_wake();
     board_stall_pause(false);
 }

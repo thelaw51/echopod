@@ -149,6 +149,13 @@ class ReportTest(unittest.TestCase):
         self.assertEqual(lines[4], "USB overlay code: 12,288 of 65,536 bytes, 53,248 free")
         self.assertEqual(lines[5], "USB overlay code + .bss: 49,152 of 86,016 bytes, 36,864 free")
 
+    def test_summary_measures_the_cold_code_against_its_image_slot(self):
+        cold = MAP + """
+.cold           0x0308405c     0x3f3c
+ .text          0x0308406c     0x3f2c src/app/libecho_app.a(settings_screens.c.obj)
+"""
+        self.assertIn("cold code: 16,188 of 32,768 bytes, 16,580 free", size_report.summary(cold))
+
     def test_summary_flags_a_limit_that_is_over(self):
         over = MAP.replace(".code           0x03050000     0x1000",
                            ".code           0x03050000    0x26700")

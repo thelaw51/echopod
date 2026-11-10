@@ -273,6 +273,7 @@ RescanOutcome library_rescan_run(RescanProgress progress)
     }
     const LibraryScanEntry *entry = hal_system_load_rescan_code();
     if (entry == NULL || entry->magic != LIBRARY_SCAN_MAGIC) {
+        hal_system_release_rescan_code();
         hal_file_close(&files.scratch);
         outcome.result = SCAN_NO_CODE;
         return outcome;
@@ -297,6 +298,7 @@ RescanOutcome library_rescan_run(RescanProgress progress)
         .progress = {report, &files},
     };
     run_passes(entry, &job, &outcome);
+    hal_system_release_rescan_code();
     hal_file_close(&files.scratch);
     hal_system_return_scratch();
     hal_input_drop_presses();
