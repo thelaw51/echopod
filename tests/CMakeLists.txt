@@ -75,6 +75,9 @@ foreach(library_test block_cache library library_browse favorites covers sort_ke
         LIBRARIES echo_library_fixtures
     )
 endforeach()
+target_compile_definitions(test_user_playlist PRIVATE
+    ECHO_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
+)
 add_library(echo_reference_builder STATIC
     library/reference/reference_builder.c
     library/reference/reference_builder_encode.c
@@ -150,6 +153,9 @@ echo_add_unit_test(NAME test_player
     SOURCES app/test_player.c app/fake_hal.c
     LIBRARIES echo_app echo_library_fixtures
     PRIVATE_INCLUDES ${PROJECT_SOURCE_DIR}/src/app
+)
+target_compile_definitions(test_player PRIVATE
+    ECHO_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
 )
 echo_add_unit_test(NAME test_listen_history
     SOURCES app/test_listen_history.c app/fake_hal.c

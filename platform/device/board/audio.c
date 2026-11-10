@@ -120,6 +120,7 @@ static bool deferred;
 static bool queued_light;
 static TrackProbe queued_probe;
 static uint32_t queued_token;
+static AudioClip queued_clip;
 static char queued_path[AUDIO_ENGINE_PATH_CAPACITY];
 static uint32_t rest_position_ms;
 static uint32_t paused_since_ms;
@@ -591,11 +592,16 @@ static void follow_queue(void)
     }
     bool restart = stream_service == NULL && (clock_for(queued_light) != hal_system_clock_mhz() ||
                                               core1_restart_for(queued_probe));
-    audio_engine_queue_next(&engine, restart ? NULL : queued_path, queued_token);
+    audio_engine_queue_next(&engine, restart ? NULL : queued_path, queued_clip, queued_token);
     deferred = restart;
 }
 
-bool hal_audio_play(const char *path, uint32_t start_ms, uint32_t token)
+static AudioClip engine_clip(HalAudioClip clip)
+{
+    return (AudioClip){.start_ms = clip.start_ms, .end_ms = clip.end_ms};
+}
+
+bool hal_audio_play(const char *path, HalAudioClip clip, uint32_t start_ms, uint32_t token)
 {
     ensure_engine();
     resting = false;
@@ -603,7 +609,7 @@ bool hal_audio_play(const char *path, uint32_t start_ms, uint32_t token)
     stop_tone();
     stop_transfer();
     choose_clock(path);
-    if (!audio_engine_play(&engine, path, start_ms, token)) {
+    if (!audio_engine_play(&engine, path, engine_clip(clip), start_ms, token)) {
         return false;
     }
     if (!start_output(true)) {
@@ -613,12 +619,13 @@ bool hal_audio_play(const char *path, uint32_t start_ms, uint32_t token)
     return true;
 }
 
-void hal_audio_queue_next(const char *path, uint32_t token)
+void hal_audio_queue_next(const char *path, HalAudioClip clip, uint32_t token)
 {
     ensure_engine();
     deferred = false;
     queued_path[0] = '\0';
-    audio_engine_queue_next(&engine, path, token);
+    queued_clip = engine_clip(clip);
+    audio_engine_queue_next(&engine, path, queued_clip, token);
     if (path == NULL) {
         return;
     }
@@ -647,7 +654,9 @@ static void start_deferred(void)
         return;
     }
     deferred = false;
-    hal_audio_play(queued_path, 0, queued_token);
+    hal_audio_play(queued_path,
+                   (HalAudioClip){.start_ms = queued_clip.start_ms, .end_ms = queued_clip.end_ms},
+                   0, queued_token);
 }
 
 void hal_audio_pause(void)
