@@ -37,6 +37,11 @@ HalBattery hal_power_battery(void)
     return power.battery;
 }
 
+HalBattery hal_power_boot_battery(void)
+{
+    return power.battery;
+}
+
 void hal_power_off(void)
 {
     power.off_requested = true;

@@ -22,6 +22,8 @@ enum {
 static bool charge_status_ready;
 static HalPowerHold boot_hold;
 static bool usb_start;
+static bool boot_battery_known;
+static uint32_t boot_battery_millivolts;
 static uint32_t savings_changed;
 
 uint32_t hal_system_power_savings(void)
@@ -67,6 +69,19 @@ void board_power_hold(void)
     boot_hold.key_down = gpio_read(POWER_KEY);
     bool held_by_key = boot_hold.output && boot_hold.high;
     usb_start = boot_hold.usb_power && !boot_hold.key_down && !held_by_key;
+}
+
+void board_power_note_boot_battery(uint32_t millivolts)
+{
+    boot_battery_known = true;
+    boot_battery_millivolts = millivolts;
+}
+
+HalBattery hal_power_boot_battery(void)
+{
+    return (HalBattery){.known = boot_battery_known,
+                        .usb_power = usb_vbus_present(),
+                        .millivolts = (uint16_t)boot_battery_millivolts};
 }
 
 HalPowerHold hal_power_boot_hold(void)

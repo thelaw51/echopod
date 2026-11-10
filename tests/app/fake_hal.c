@@ -87,6 +87,7 @@ typedef struct FakeHal {
     bool display_on;
     uint8_t brightness;
     HalBattery battery;
+    HalBattery boot_battery;
     int power_off_count;
     uint32_t now_ms;
     uint32_t now_us;
@@ -373,6 +374,16 @@ void fake_hal_set_battery(HalBattery battery)
 HalBattery hal_power_battery(void)
 {
     return fake.battery;
+}
+
+void fake_hal_set_boot_battery(HalBattery battery)
+{
+    fake.boot_battery = battery;
+}
+
+HalBattery hal_power_boot_battery(void)
+{
+    return fake.boot_battery;
 }
 
 void hal_power_off(void)

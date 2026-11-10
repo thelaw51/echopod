@@ -12,6 +12,7 @@ typedef struct HalBattery {
 } HalBattery;
 
 HalBattery hal_power_battery(void);
+HalBattery hal_power_boot_battery(void);
 
 typedef struct HalPowerHold {
     uint8_t function;

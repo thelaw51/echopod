@@ -207,13 +207,6 @@ static void the_clock_wrapping_keeps_the_steps(void)
     CHECK_EQUAL(49, battery_display_update(&display, 48, false, STEP));
 }
 
-static void a_boot_below_3400_mv_on_battery_switches_off(void)
-{
-    CHECK(battery_boot_cutoff(3399, false));
-    CHECK(!battery_boot_cutoff(3400, false));
-    CHECK(!battery_boot_cutoff(3000, true));
-}
-
 int main(void)
 {
     static const TestCase cases[] = {
@@ -237,7 +230,6 @@ int main(void)
         TEST_CASE(plugging_in_does_not_drop_the_shown_percent),
         TEST_CASE(unplugging_holds_then_does_not_raise_the_shown_percent),
         TEST_CASE(the_clock_wrapping_keeps_the_steps),
-        TEST_CASE(a_boot_below_3400_mv_on_battery_switches_off),
     };
     return test_run_all(cases, TEST_CASE_COUNT(cases));
 }

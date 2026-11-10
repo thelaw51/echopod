@@ -5,6 +5,7 @@
 #include "check.h"
 #include "clock_store.h"
 #include "core/hash.h"
+#include "core/low_battery.h"
 #include "default_theme.h"
 #include "fake_hal.h"
 #include "fixture_library.h"
@@ -1595,6 +1596,61 @@ static void a_cable_start_opens_the_charge_screen(void)
     CHECK(!fake_hal_bluetooth_powered());
 }
 
+static void start_on_boot_battery(uint32_t millivolts, bool usb_power)
+{
+    fake_hal_reset();
+    fake_hal_set_boot_battery(
+        (HalBattery){.known = true, .millivolts = (uint16_t)millivolts, .usb_power = usb_power});
+    if (usb_power) {
+        fake_hal_set_battery(ON_USB);
+    }
+    now_ms = START_MS;
+    fake_hal_set_milliseconds(now_ms);
+    app_start();
+}
+
+static void an_almost_empty_battery_refuses_to_start_and_turns_off(void)
+{
+    start_on_boot_battery(LOW_BATTERY_START_MV - 1, false);
+    CHECK(app_refusing_start());
+    CHECK(fake_hal_display_on());
+    CHECK(title_is("Battery low"));
+    wait_ms(1900);
+    CHECK_EQUAL(0, fake_hal_power_off_count());
+    wait_ms(200);
+    CHECK_EQUAL(1, fake_hal_power_off_count());
+    app_stop();
+    CHECK_EQUAL(0, fake_hal_reserve_count());
+    CHECK_EQUAL(0, fake_hal_write_count());
+}
+
+static void a_refused_start_ignores_wake_requests(void)
+{
+    start_on_boot_battery(LOW_BATTERY_EMPTY_MV, false);
+    app_wake();
+    app_stop();
+    CHECK_EQUAL(0, app_screen_depth());
+    CHECK_EQUAL(0, fake_hal_write_count());
+}
+
+static void an_almost_empty_battery_on_usb_opens_the_charge_screen(void)
+{
+    start_on_boot_battery(LOW_BATTERY_EMPTY_MV - 100, true);
+    CHECK(!app_refusing_start());
+    CHECK(app_charging());
+    wait_ms(100);
+    CHECK(fake_hal_display_on());
+    CHECK_EQUAL(0, fake_hal_power_off_count());
+}
+
+static void a_battery_at_the_start_level_starts_normally(void)
+{
+    start_on_boot_battery(LOW_BATTERY_START_MV, false);
+    CHECK(!app_refusing_start());
+    CHECK(!app_charging());
+    CHECK(fake_hal_reserve_count() > 0);
+}
+
 static void an_empty_battery_saves_and_turns_the_player_off(void)
 {
     start_app_with_library();
@@ -3013,6 +3069,10 @@ int main(void)
         TEST_CASE(a_new_firmware_rebuilds_a_library_it_cannot_read),
         TEST_CASE(a_card_that_cannot_be_walked_is_rescanned_after_usb),
         TEST_CASE(a_full_card_says_it_is_full),
+        TEST_CASE(an_almost_empty_battery_refuses_to_start_and_turns_off),
+        TEST_CASE(a_refused_start_ignores_wake_requests),
+        TEST_CASE(an_almost_empty_battery_on_usb_opens_the_charge_screen),
+        TEST_CASE(a_battery_at_the_start_level_starts_normally),
         TEST_CASE(an_empty_battery_saves_and_turns_the_player_off),
         TEST_CASE(an_empty_battery_on_usb_power_keeps_playing),
         TEST_CASE(switching_off_on_usb_power_shows_the_charge_screen),
