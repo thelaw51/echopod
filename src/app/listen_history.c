@@ -146,6 +146,13 @@ static void count(ListenHistory *history, uint32_t now_ms)
     history->last_ms = now_ms;
 }
 
+bool listen_history_counts(uint32_t duration_ms, uint32_t played_ms)
+{
+    uint32_t half = duration_ms / 2;
+    return duration_ms > HISTORY_SHORTEST_COUNTED_MS &&
+           played_ms >= (half < HISTORY_ENOUGH_LISTENING_MS ? half : HISTORY_ENOUGH_LISTENING_MS);
+}
+
 void listen_history_close(ListenHistory *history, uint32_t now_ms)
 {
     count(history, now_ms);
@@ -157,6 +164,11 @@ void listen_history_close(ListenHistory *history, uint32_t now_ms)
     history->record.end_position_ms = history->position_ms;
     if (history->record.played_ms >= HISTORY_MIN_PLAY_MS) {
         store(history, &history->record);
+    }
+    HistoryCounted counted = history->counted;
+    if (counted.counted != NULL &&
+        listen_history_counts(history->record.duration_ms, history->record.played_ms)) {
+        counted.counted(counted.context, history->track);
     }
 }
 

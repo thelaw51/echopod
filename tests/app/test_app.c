@@ -16,9 +16,11 @@
 #include "hal/system.h"
 #include "library/cover_build.h"
 #include "library/covers.h"
+#include "library/play_log.h"
 #include "library_rescan.h"
 #include "listen_history.h"
 #include "music_check.h"
+#include "play_lists.h"
 #include "scrobbler_log.h"
 #include "settings/rocker.h"
 #include "settings/settings.h"
@@ -1451,7 +1453,7 @@ static void a_fresh_card_gets_the_player_files_and_a_first_scan(void)
 static void a_card_that_has_the_files_is_not_rescanned(void)
 {
     start_on_a_fresh_card(HAL_RESERVE_EXISTS);
-    CHECK_EQUAL(17, fake_hal_reserve_count());
+    CHECK_EQUAL(18, fake_hal_reserve_count());
     step();
     CHECK_EQUAL(0, fake_hal_scratch_borrow_count());
 }
@@ -1916,7 +1918,7 @@ static void holding_play_in_favorites_removes_the_album(void)
     hold(KEY_PLAY);
     CHECK(toast_is("Removed from Favorites"));
     tap(KEY_PLAY);
-    CHECK(title_is("Loved tracks"));
+    CHECK(title_is("Most played"));
 }
 
 static void favorites_survive_a_restart(void)
@@ -2584,6 +2586,7 @@ static void start_app_with_history_and_chip(bool history_on, HalTime chip, uint3
     fake_hal_add_file("/.echo/library.db", bytes, size);
     fake_hal_add_file("/.echo/settings.bin", history_settings, sizeof history_settings);
     fake_hal_add_file(LISTEN_HISTORY_PATH, NULL, 16 * HISTORY_SLOT_BYTES);
+    fake_hal_add_file(PLAY_LISTS_PATH, NULL, PLAY_LOG_FILE_BYTES);
     fake_hal_set_time(chip);
     fake_hal_set_build_day(build_day);
     app_forget_clock();
@@ -2608,6 +2611,14 @@ static int history_records(HistoryRecord *records, int capacity)
          at += HISTORY_SLOT_BYTES) {
         count += listen_history_decode(bytes + at, &records[count]);
     }
+    for (int done = 1; done < count; done++) {
+        HistoryRecord record = records[done];
+        int at = done;
+        for (; at > 0 && records[at - 1].sequence > record.sequence; at--) {
+            records[at] = records[at - 1];
+        }
+        records[at] = record;
+    }
     return count;
 }
 
@@ -2626,6 +2637,94 @@ static void played_songs_go_to_the_listen_history_with_a_mark_for_usb(void)
     CHECK_EQUAL(60000, records[count - 2].duration_ms);
     CHECK_EQUAL(HISTORY_COMPUTER, records[count - 1].kind);
     CHECK_EQUAL(now_ms, records[count - 1].end_ms);
+}
+
+static bool newest_play_log(uint8_t *log)
+{
+    uint32_t size = 0;
+    const uint8_t *bytes = fake_hal_file_bytes(PLAY_LISTS_PATH, &size);
+    bool found = false;
+    for (uint32_t copy = 0; bytes != NULL && copy < 2; copy++) {
+        uint32_t at = copy * PLAY_LOG_COPY_STRIDE;
+        if (at + PLAY_LOG_BYTES > size || !play_log_valid(bytes + at) ||
+            (found && play_log_generation(bytes + at) <= play_log_generation(log))) {
+            continue;
+        }
+        memcpy(log, bytes + at, PLAY_LOG_BYTES);
+        found = true;
+    }
+    return found;
+}
+
+static void wake_screen(void)
+{
+    if (!fake_hal_display_on()) {
+        tap(KEY_POWER);
+    }
+}
+
+static void skip_after(uint32_t listened_ms)
+{
+    wait_ms(listened_ms);
+    wake_screen();
+    hold(KEY_VOLUME_UP);
+}
+
+static void open_favorite_list(int music_row, int row)
+{
+    wake_screen();
+    hold_back();
+    tap(KEY_PLAY);
+    move_down(MUSIC_FAVORITES_INDEX - music_row);
+    tap(KEY_PLAY);
+    CHECK(title_is("Favorites"));
+    move_down(row);
+    tap(KEY_PLAY);
+}
+
+static void songs_heard_past_half_way_are_counted_and_skipped_ones_are_not(void)
+{
+    static uint8_t log[PLAY_LOG_BYTES];
+    start_app_with_history(true);
+    play_first_album_track();
+    wait_ms(5000);
+    hold(KEY_VOLUME_UP);
+    CHECK(playing_path_is(SHOOT_TO_THRILL_PATH));
+    wait_ms(40000);
+    app_release_audio();
+    CHECK(newest_play_log(log));
+    CHECK_EQUAL(1, play_log_count(log));
+    CHECK_EQUAL(1, play_log_entry(log, 0).plays);
+    uint16_t tracks[PLAY_LOG_LIST_TRACKS];
+    CHECK_EQUAL(1, play_log_list(log, PLAY_LOG_RECENT, tracks, PLAY_LOG_LIST_TRACKS));
+}
+
+static void recently_played_lists_the_last_counted_song_first_and_plays_it(void)
+{
+    start_app_with_history(true);
+    play_first_album_track();
+    skip_after(40000);
+    CHECK(playing_path_is(SHOOT_TO_THRILL_PATH));
+    wait_ms(40000);
+    app_release_audio();
+    open_favorite_list(MUSIC_ALBUMS_INDEX, 1);
+    CHECK(title_is("Recently played"));
+    tap(KEY_PLAY);
+    CHECK(title_is("Now Playing"));
+    CHECK(playing_path_is(SHOOT_TO_THRILL_PATH));
+    open_favorite_list(MUSIC_FAVORITES_INDEX, 2);
+    CHECK(title_is("Most played"));
+    app_release_audio();
+}
+
+static void with_listen_history_off_nothing_is_counted(void)
+{
+    static uint8_t log[PLAY_LOG_BYTES];
+    start_app_with_history(false);
+    play_first_album_track();
+    wait_ms(40000);
+    app_release_audio();
+    CHECK(!newest_play_log(log));
 }
 
 static void the_clock_is_under_display_and_date_time_under_system(void)
@@ -3282,6 +3381,9 @@ int main(void)
         TEST_CASE(played_songs_go_to_the_listen_history_with_a_mark_for_usb),
         TEST_CASE(a_listen_history_turned_off_records_nothing),
         TEST_CASE(connecting_writes_the_scrobbler_log_while_the_history_is_on),
+        TEST_CASE(songs_heard_past_half_way_are_counted_and_skipped_ones_are_not),
+        TEST_CASE(recently_played_lists_the_last_counted_song_first_and_plays_it),
+        TEST_CASE(with_listen_history_off_nothing_is_counted),
         TEST_CASE(the_clock_is_under_display_and_date_time_under_system),
         TEST_CASE(a_clock_dated_before_the_firmware_shows_no_time),
         TEST_CASE(the_landscape_clock_and_battery_show_at_every_minute),

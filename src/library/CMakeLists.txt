@@ -10,6 +10,7 @@ add_library(echo_library STATIC
     sort_initial.c
     spoken_path.c
     user_playlist.c
+    play_log.c
 )
 target_include_directories(echo_library PUBLIC include)
 if(CMAKE_CROSSCOMPILING)
@@ -54,5 +55,6 @@ target_link_libraries(echo_library_scan
 )
 if(CMAKE_CROSSCOMPILING)
     set_source_files_properties(cue_sheet.c library_scan.c playlist_reader.c PROPERTIES COMPILE_OPTIONS -Os)
+    set_source_files_properties(play_log.c PROPERTIES COMPILE_OPTIONS -fno-lto)
 endif()
 target_link_libraries(echo_library PRIVATE echo_lto)

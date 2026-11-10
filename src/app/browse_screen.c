@@ -158,6 +158,33 @@ static int user_row_slot(const BrowseScreen *browse, int index)
     return user_playlists_slot_at(browse->pool->config.playlists, (uint16_t)row);
 }
 
+typedef enum FavoriteRow {
+    FAVORITE_ROW_LOVED,
+    FAVORITE_ROW_RECENT,
+    FAVORITE_ROW_MOST
+} FavoriteRow;
+
+static int favorite_rows(const BrowsePool *pool)
+{
+    return (pool->config.loved != NULL ? 1 : 0) + (pool->config.plays != NULL ? 2 : 0);
+}
+
+static FavoriteRow favorite_row(const BrowseScreen *browse, int index)
+{
+    int row = index - browse->extra + (browse->pool->config.loved == NULL ? 1 : 0);
+    return (FavoriteRow)row;
+}
+
+static uint16_t favorite_list(FavoriteRow row)
+{
+    return row == FAVORITE_ROW_MOST ? (uint16_t)PLAY_LISTS_MOST : (uint16_t)PLAY_LISTS_RECENT;
+}
+
+static StringId favorite_label(FavoriteRow row)
+{
+    return row == FAVORITE_ROW_LOVED ? STR_MENU_LOVED_TRACKS : play_lists_title(favorite_list(row));
+}
+
 static void load_row(BrowseScreen *browse, BrowseRows *rows, int row, int index)
 {
     BrowseText text = {rows->labels[row], BROWSE_LABEL_CAPACITY, rows->details[row],
@@ -174,7 +201,7 @@ static void load_row(BrowseScreen *browse, BrowseRows *rows, int row, int index)
     if (index < browse->extra + browse->user_rows) {
         if (browse->favorites_only) {
             StringBuilder label = string_builder_make(rows->labels[row], BROWSE_LABEL_CAPACITY);
-            string_builder_append(&label, i18n_text(STR_MENU_LOVED_TRACKS));
+            string_builder_append(&label, i18n_text(favorite_label(favorite_row(browse, index))));
         } else {
             user_playlists_name(browse->pool->config.playlists, user_row_slot(browse, index),
                                 rows->labels[row], BROWSE_LABEL_CAPACITY);
@@ -367,6 +394,11 @@ static BrowseQuery playback_query(BrowseScreen *browse, BrowseQuery query)
         loved_tracks_pin(loved);
         return loved_tracks_query(true);
     }
+    PlayLists *plays = browse->pool->config.plays;
+    if (browse->play_list != PLAY_LISTS_NONE && plays != NULL) {
+        play_lists_pin(plays, browse->play_list);
+        return play_lists_query(browse->play_list, true);
+    }
     UserPlaylists *playlists = browse->pool->config.playlists;
     if (query.kind != BROWSE_TRACK_LIST || playlists == NULL) {
         return query;
@@ -487,9 +519,12 @@ static ScreenAction open_user_playlist(BrowseScreen *browse, int slot)
     return screen_action_push(next);
 }
 
-static ScreenAction open_loved_tracks(BrowseScreen *browse)
+static ScreenAction open_favorite_row(BrowseScreen *browse, int index)
 {
-    Screen *next = browse_pool_open(browse->pool, browse->level + 1, loved_tracks_query(false));
+    FavoriteRow row = favorite_row(browse, index);
+    BrowseQuery query = row == FAVORITE_ROW_LOVED ? loved_tracks_query(false)
+                                                  : play_lists_query(favorite_list(row), false);
+    Screen *next = browse_pool_open(browse->pool, browse->level + 1, query);
     return next != NULL ? screen_action_push(next) : screen_action_none();
 }
 
@@ -501,7 +536,7 @@ static ScreenAction select_row(void *context, int index)
         return play_all(browse, index == browse->extra - 1);
     }
     if (index < browse->extra + browse->user_rows && browse->favorites_only) {
-        return open_loved_tracks(browse);
+        return open_favorite_row(browse, index);
     }
     if (index < browse->extra + browse->user_rows) {
         return open_user_playlist(browse, user_row_slot(browse, index));
@@ -855,6 +890,11 @@ static void enter(void *context, uint32_t now_ms)
     if (browse->favorites_only) {
         collect_favorites(browse);
     }
+    PlayLists *plays = browse->pool->config.plays;
+    if (browse->play_list != PLAY_LISTS_NONE && plays != NULL &&
+        play_lists_show(plays, browse->play_list, false)) {
+        forget_rows(browse);
+    }
     if (browse->query.kind == BROWSE_PLAYLISTS || browse->query.kind == BROWSE_TRACK_LIST) {
         recount(browse, now_ms);
     }
@@ -923,15 +963,21 @@ Screen *browse_pool_open(BrowsePool *pool, int level, BrowseQuery query)
     browse->query = query;
     browse->favorites_only = false;
     browse->loved_list = loved_tracks_is_list(query);
+    browse->play_list = play_lists_list_of(query);
+    if (browse->play_list != PLAY_LISTS_NONE && pool->config.plays != NULL) {
+        (void)play_lists_show(pool->config.plays, browse->play_list, true);
+    }
     browse->shelf = SPOKEN_NONE;
     browse->shelf_root = false;
     browse->in_flow = false;
     browse->list_slot = USER_PLAYLISTS_NO_SLOT;
     count_rows(browse);
     browse_title(pool->config.library, query, browse->title, sizeof browse->title);
-    if (browse->loved_list) {
+    if (browse->loved_list || browse->play_list != PLAY_LISTS_NONE) {
         StringBuilder title = string_builder_make(browse->title, sizeof browse->title);
-        string_builder_append(&title, i18n_text(STR_MENU_LOVED_TRACKS));
+        string_builder_append(&title,
+                              i18n_text(browse->loved_list ? STR_MENU_LOVED_TRACKS
+                                                           : play_lists_title(browse->play_list)));
     } else if (query.kind == BROWSE_TRACK_LIST && pool->config.playlists != NULL) {
         browse->list_slot = (int)(query.subject & ~USER_PLAYLISTS_PINNED);
         user_playlists_name(pool->config.playlists, browse->list_slot, browse->title,
@@ -969,7 +1015,7 @@ Screen *browse_pool_open_favorites(BrowsePool *pool, int level)
     StringBuilder title = string_builder_make(browse->title, sizeof browse->title);
     string_builder_append(&title, i18n_text(STR_MENU_FAVORITES));
     browse->favorites_only = true;
-    browse->user_rows = pool->config.loved != NULL ? 1 : 0;
+    browse->user_rows = favorite_rows(pool);
     browse->model.section = NULL;
     collect_favorites(browse);
     if (pool->favorite_count > 0) {
